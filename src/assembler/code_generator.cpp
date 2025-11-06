@@ -19,6 +19,12 @@ std::vector<std::string> printIntermediateCode(const std::vector<std::pair<ICUni
 
     if (instruction_set::isValidRTypeInstruction(block.getOpcode())) {
       code = block.getOpcode() + " " + block.getRd() + " " + block.getRs1() + " " + block.getRs2();
+    } 
+    //custom
+    else if(instruction_set::isValidRLTypeInstruction(block.getOpcode())) {
+      code = block.getOpcode() + " " + block.getRd() + " " + block.getRs1() + " " + block.getRs2();
+    } else if (instruction_set::isValidSRTypeInstruction(block.getOpcode())) {
+      code = block.getOpcode() + " " + block.getRs2() + " " + block.getImm() + "(" + block.getRs1() + ")";
     } else if (instruction_set::isValidITypeInstruction(block.getOpcode())) {
       code = block.getOpcode() + " " + block.getRd() + " " + block.getRs1() + " " + block.getImm();
     } else if (instruction_set::isValidSTypeInstruction(block.getOpcode())) {
@@ -58,6 +64,42 @@ uint32_t generateRTypeMachineCode(const ICUnit &block) {
   machineCode |= (funct3 << 12);
   machineCode |= (rd << 7);
   machineCode |= opcode;
+  return machineCode;
+}
+
+//custom
+uint32_t generateRLTypeMachineCode(const ICUnit &block) {
+  const auto &encoding = instruction_set::RL_type_instruction_encoding_map.at(block.getOpcode());
+  const uint32_t rd = extractRegisterIndex(block.getRd());
+  const uint32_t rs1 = extractRegisterIndex(block.getRs1());
+  const uint32_t rs2 = extractRegisterIndex(block.getRs2());
+  const uint32_t funct3 = encoding.funct3.to_ulong();
+  const uint32_t funct7 = encoding.funct7.to_ulong();
+  const uint32_t opcode = encoding.opcode.to_ulong();
+  uint32_t machineCode = 0;
+  machineCode |= (funct7 << 25);
+  machineCode |= (rs2 << 20);
+  machineCode |= (rs1 << 15);
+  machineCode |= (funct3 << 12);
+  machineCode |= (rd << 7);
+  machineCode |= opcode;
+  return machineCode;
+}
+
+uint32_t generateSRTypeMachineCode(const ICUnit &block) {
+  const auto &encoding = instruction_set::S_type_instruction_encoding_map.at(block.getOpcode());
+  const uint32_t rs1 = extractRegisterIndex(block.getRs1());
+  const uint32_t rs2 = extractRegisterIndex(block.getRs2());
+  const uint32_t imm = static_cast<uint32_t>(std::stoi(block.getImm()));
+  const uint32_t imm_lo = imm & 0b11111;       // bits [4:0]
+  const uint32_t imm_hi = (imm >> 5) & 0b1111111; // bits [11:5]
+  uint32_t machineCode = 0;
+  machineCode |= (imm_hi << 25);
+  machineCode |= (rs2 << 20);
+  machineCode |= (rs1 << 15);
+  machineCode |= (encoding.funct3.to_ulong() << 12);
+  machineCode |= (imm_lo << 7);
+  machineCode |= encoding.opcode.to_ulong();
   return machineCode;
 }
 
@@ -313,7 +355,14 @@ std::vector<uint32_t> generateMachineCode(const std::vector<std::pair<ICUnit, bo
     uint32_t code;
     if (instruction_set::isValidRTypeInstruction(block.getOpcode())) {
       code = generateRTypeMachineCode(block);
-    } else if (instruction_set::isValidI1TypeInstruction(block.getOpcode())) {
+    }
+    //custom
+    else if(instruction_set::isValidRLTypeInstruction(block.getOpcode())) {
+      code = generateRLTypeMachineCode(block);
+    } else if (instruction_set::isValidSRTypeInstruction(block.getOpcode())) {
+      code = generateSRTypeMachineCode(block);
+    }
+    else if (instruction_set::isValidI1TypeInstruction(block.getOpcode())) {
       code = generateI1TypeMachineCode(block);
     } else if (instruction_set::isValidI2TypeInstruction(block.getOpcode())) {
       code = generateI2TypeMachineCode(block);

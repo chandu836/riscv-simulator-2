@@ -209,6 +209,24 @@ std::vector<std::string> printIntermediateCode(const std::vector<std::pair<ICUni
  */
 uint32_t generateRTypeMachineCode(const ICUnit &block);
 
+//custom
+/**
+ * @brief Generates machine code for an RL-type instruction.
+ * 
+ * @param block The ICUnit representing the instruction.
+ * @return The machine code bitset<32>.
+ */
+uint32_t generateRLTypeMachineCode(const ICUnit &block);
+
+/**
+ * @brief Generates machine code for an sR-type instruction.
+ * 
+ * @param block The ICUnit representing the instruction.
+ * @return The machine code bitset<32>.
+ */
+uint32_t generatesRTypeMachineCode(const ICUnit &block);
+
+
 /**
  * @brief Generates machine code for an I1-type instruction.
  * 
