@@ -173,7 +173,11 @@ std::unordered_map<std::string, Instruction> instruction_string_map = {
     {"flw", Instruction::kflw},
     {"fsw", Instruction::kfsw},
     {"fld", Instruction::kfld},
-    {"fsd", Instruction::kfsd}
+    {"fsd", Instruction::kfsd},
+
+    //custom
+    {"ldbm",Instruction::kldbm},
+    {"bigmul",Instruction::kbigmul}
 
 };
 
@@ -219,7 +223,10 @@ static const std::unordered_set<std::string> valid_instructions = {
     "fcvt.s.d", "fcvt.d.s",
     "feq.d", "flt.d", "fle.d",
     "fclass.d", "fcvt.w.d", "fcvt.wu.d", "fcvt.d.w", "fcvt.d.wu",
-    "fcvt.l.d", "fcvt.lu.d", "fmv.x.d", "fcvt.d.l", "fcvt.d.lu", "fmv.d.x"
+    "fcvt.l.d", "fcvt.lu.d", "fmv.x.d", "fcvt.d.l", "fcvt.d.lu", "fmv.d.x",
+
+    //custom Instructions
+    "ldbm","bigmul"
 
 };
 
@@ -236,6 +243,15 @@ static const std::unordered_set<std::string> RTypeInstructions = {
     // M Extension RV64
     "mulw", "divw", "divuw", "remw", "remuw",
 
+};
+
+//custom Instructions
+static const std::unordered_set<std::string> RLTypeInstructions = {
+  "ldbm",
+};
+
+static const std::unordered_set<std::string> SRTypeInstructions = {
+  "bigmul",
 };
 
 static const std::unordered_set<std::string> ITypeInstructions = {
@@ -296,6 +312,8 @@ static const std::unordered_set<std::string> BaseExtensionInstructions = {
     "lui", "auipc",
     "jal", "jalr",
     "ecall",
+    //custom
+    "ldbm","bigmul",
 };
 
 static const std::unordered_set<std::string> CSRRInstructions = {
@@ -410,6 +428,14 @@ std::unordered_map<std::string, RTypeInstructionEncoding> R_type_instruction_enc
     {"remw", {0b0111011, 0b110, 0b0000001}}, // O_GPR_C_GPR_C_GPR
     {"remuw", {0b0111011, 0b111, 0b0000001}}, // O_GPR_C_GPR_C_GPR
 
+};
+
+//custom====================================================================================
+std::unordered_map<std::string, RLTypeInstructionEncoding> RL_type_instruction_encoding_map = {
+  {"ldbm", {0b0101010, 0b000, 0b0000000}}, // O_GPR_C_GPR_C_GPR
+};
+std::unordered_map<std::string, SRTypeInstructionEncoding> SR_type_instruction_encoding_map = {
+  {"bigmul", {0b0111111, 0b000}}, //O_GPR_C_I_LP_GPR_RP
 };
 
 std::unordered_map<std::string, I1TypeInstructionEncoding> I1_type_instruction_encoding_map = {
@@ -628,6 +654,10 @@ std::unordered_map<std::string, std::vector<SyntaxType>> instruction_syntax_map 
     {"slt", {SyntaxType::O_GPR_C_GPR_C_GPR}},
     {"sltu", {SyntaxType::O_GPR_C_GPR_C_GPR}},
 
+    //custom
+    {"ldbm", {SyntaxType::O_GPR_C_GPR_C_GPR}},
+    {"bigmul", {SyntaxType::O_GPR_C_I_LP_GPR_RP}},
+
     {"addi", {SyntaxType::O_GPR_C_GPR_C_I}},
     {"xori", {SyntaxType::O_GPR_C_GPR_C_I}},
     {"ori", {SyntaxType::O_GPR_C_GPR_C_I}},
@@ -823,6 +853,14 @@ bool isValidInstruction(const std::string &instruction) {
 
 bool isValidRTypeInstruction(const std::string &instruction) {
   return RTypeInstructions.find(instruction)!=RTypeInstructions.end();
+}
+
+//custom
+bool isValidRLTypeInstruction(const std::string &instruction) {
+  return RLTypeInstructions.find(instruction)!=RLTypeInstructions.end();
+}
+bool isValidSRTypeInstruction(const std::string &instruction) {
+  return SRTypeInstructions.find(instruction)!=SRTypeInstructions.end();
 }
 
 bool isValidITypeInstruction(const std::string &instruction) {
