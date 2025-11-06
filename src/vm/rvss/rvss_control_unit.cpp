@@ -28,6 +28,18 @@ void RVSSControlUnit::SetControlSignals(uint32_t instruction) {
       alu_op_ = true;
       break;
     }
+    //custom
+    case 0b0101010: /* RL-type (kldbm) */ {
+      mem_read_ = true;
+      reg_write_ = false;
+      ldbm_start_ = true; 
+      break;
+    }
+    case 0b0111111: /* R-type (kAdd, kSub, kAnd, kOr, kXor, kSll, kSrl, etc.) */ {
+      mem_write_ = true;
+      bigmul_start_ = true;
+      break;
+    }
     case 0b0000011: 
     
     
