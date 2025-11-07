@@ -1119,6 +1119,7 @@ void RVSSVM::Reset() {
   registers_.Reset();
   memory_controller_.Reset();
   control_unit_.Reset();
+  bigmul_unit_.reset();
   branch_flag_ = false;
   next_pc_ = 0;
   execution_result_ = 0;
