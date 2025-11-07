@@ -35,7 +35,7 @@ void RVSSControlUnit::SetControlSignals(uint32_t instruction) {
       ldbm_start_ = true; 
       break;
     }
-    case 0b0111111: /* R-type (kAdd, kSub, kAnd, kOr, kXor, kSll, kSrl, etc.) */ {
+    case 0b0111111: /* SR-type (bigmul) */ {
       mem_write_ = true;
       bigmul_start_ = true;
       break;
