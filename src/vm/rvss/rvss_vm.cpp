@@ -10,6 +10,7 @@
 #include "globals.h"
 #include "common/instructions.h"
 #include "config.h"
+#include "vm/bigmul_unit.h"
 
 #include <cctype>
 #include <cstdint>
@@ -41,6 +42,19 @@ void RVSSVM::Fetch() {
 
 void RVSSVM::Decode() {
   control_unit_.SetControlSignals(current_instruction_);
+
+  //control signals custom and required values
+  if (control_unit_.GetLdbmStart() && bigmul_unit::GetLdbmDone()) {
+
+        uint8_t rs1 = (current_instruction_ >> 15) & 0x1F;
+        uint8_t rs2 = (current_instruction_ >> 20) & 0x1F;
+
+        bigmul_unit::base_addr_A = registers_.ReadGpr(rs1);
+        bigmul_unit::base_addr_B = registers_.ReadGpr(rs2);
+
+        bigmul_unit::ldbm_offset = 0;
+        bigmul_unit::ldbm_done_ = false;
+  }
 }
 
 void RVSSVM::Execute() {
@@ -415,7 +429,40 @@ void RVSSVM::WriteMemory() {
   }
 
   if (control_unit_.GetMemRead()) {
-    switch (funct3) {
+    //custom
+    if (!bigmul_unit::GetLdbmDone()) {
+
+        // std::vector<uint8_t> bufA(512);
+        // std::vector<uint8_t> bufB(512);
+
+        // for (size_t i = 0; i < 512; ++i) {
+        //     bufA[i] = memory_controller_.ReadByte(base_addr_A + i);
+        //     bufB[i] = memory_controller_.ReadByte(base_addr_B + i);
+        // }
+
+        // bigmul_unit::loadcache(bufA, bufB);
+        // bigmul_unit::ldbm_done_ = true;
+        if (bigmul_unit::ldbm_offset < 512) {
+          for (size_t i = 0; i < 64 ; i++) {
+            bigmul_unit::cacheA[bigmul_unit::ldbm_offset + i] = 
+            memory_controller_.ReadByte(bigmul_unit::base_addr_A + bigmul_unit::ldbm_offset + i);
+          }
+        }
+        else if (bigmul_unit::ldbm_offset < 1024) {
+          for (size_t i = 0; i < 64 ; i++) {
+            bigmul_unit::cacheB[bigmul_unit::ldbm_offset + i - 512] = 
+            memory_controller_.ReadByte(bigmul_unit::base_addr_B + bigmul_unit::ldbm_offset + i - 512);
+          }
+        }
+        bigmul_unit::ldbm_offset += 64;
+
+        if (bigmul_unit::ldbm_offset >= 1024) {
+          bigmul_unit::ldbm_done_ = true;
+        }
+        return ;
+    }
+    else {
+      switch (funct3) {
       case 0b000: {// LB
         memory_result_ = static_cast<int8_t>(memory_controller_.ReadByte(execution_result_));
         break;
@@ -444,6 +491,7 @@ void RVSSVM::WriteMemory() {
         memory_result_ = static_cast<uint32_t>(memory_controller_.ReadWord(execution_result_));
         break;
       }
+    }
     }
   }
 
@@ -803,7 +851,14 @@ void RVSSVM::Run() {
   while (!stop_requested_ && program_counter_ < program_size_) {
     if (instruction_executed > vm_config::config.getInstructionExecutionLimit())
       break;
-
+      //custom for ldbm
+      if(!bigmul_unit::GetLdbmDone()){
+        WriteMemory();
+        cycle_s_++;
+        std::cout << "LDBM Stall cycle, offset = " 
+                      << bigmul_unit::ldbm_offset << std::endl;
+        continue;
+      }
     Fetch();
     Decode();
     Execute();
@@ -828,6 +883,16 @@ void RVSSVM::DebugRun() {
   while (!stop_requested_ && program_counter_ < program_size_) {
     if (instruction_executed > vm_config::config.getInstructionExecutionLimit())
       break;
+
+    //custom for ldbm
+      if(!bigmul_unit::GetLdbmDone()){
+        WriteMemory();
+        cycle_s_++;
+        std::cout << "LDBM Stall cycle, offset = " 
+                      << bigmul_unit::ldbm_offset << std::endl;
+        continue;
+      }
+
     current_delta_.old_pc = program_counter_;
     if (std::find(breakpoints_.begin(), breakpoints_.end(), program_counter_) == breakpoints_.end()) {
       Fetch();
@@ -875,6 +940,20 @@ void RVSSVM::DebugRun() {
 }
 
 void RVSSVM::Step() {
+  //custom
+  if (!bigmul_unit::GetLdbmDone()) {
+        WriteMemory();
+        cycle_s_++;
+
+        std::cout << "[LDBM Stall] offset=" 
+                  << bigmul_unit::ldbm_offset << std::endl;
+
+        output_status_ = "VM_STEP_STALL";
+        DumpRegisters(globals::registers_dump_file_path, registers_);
+        DumpState(globals::vm_state_dump_file_path);
+        current_delta_ = StepDelta();
+        return;
+    }
   current_delta_.old_pc = program_counter_;
   if (program_counter_ < program_size_) {
     Fetch();
@@ -920,6 +999,12 @@ void RVSSVM::Undo() {
     output_status_ = "VM_NO_MORE_UNDO";
     return;
   }
+  //custom
+  while (!bigmul_unit::GetLdbmDone()) {
+    WriteMemory();
+    cycle_s_++;
+  }
+ 
 
   StepDelta last = undo_stack_.top();
   undo_stack_.pop();
@@ -975,6 +1060,12 @@ void RVSSVM::Redo() {
     std::cout << "VM_NO_MORE_REDO" << std::endl;
     return;
   }
+  //custom
+  while (!bigmul_unit::GetLdbmDone()) {
+    WriteMemory();
+    cycle_s_++;
+  }
+
 
   StepDelta next = redo_stack_.top();
   redo_stack_.pop();

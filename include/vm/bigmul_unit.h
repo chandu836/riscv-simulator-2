@@ -8,6 +8,9 @@
 namespace bigmul_unit {
     extern bool bigmul_done_;
     extern bool ldbm_done_;
+    extern size_t ldbm_offset;
+    extern uint64_t base_addr_A;
+    extern uint64_t base_addr_B;
     extern uint8_t cacheA[512];
     extern uint8_t cacheB[512];
     extern uint8_t resultCache[1024];
@@ -16,10 +19,10 @@ namespace bigmul_unit {
     [[nodiscard]] bool GetBigmulDone();
     [[nodiscard]] bool GetLdbmDone();
 
-    void loadcache(const std::vector<uint8_t>& bufA, const std::vector<uint8_t>& bufB);
+    //void loadcache(const std::vector<uint8_t>& bufA, const std::vector<uint8_t>& bufB);
     void executeBigmul();
     [[nodiscard]] std::size_t getResultSize();
-    void invalidateCaches();
-    
+    //void invalidateCaches();
+
 }
 #endif // BIGMUL_UNIT_H
