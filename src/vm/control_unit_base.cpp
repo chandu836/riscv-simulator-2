@@ -35,3 +35,11 @@ uint8_t ControlUnit::GetAluOp() const {
 bool ControlUnit::GetBranch() const {
   return branch_;
 }
+
+bool ControlUnit::GetLdbmStart() const {
+  return ldbm_start_;
+}
+
+bool ControlUnit::GetBigmulStart() const {
+  return bigmul_start_;
+}

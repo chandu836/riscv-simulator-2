@@ -39,6 +39,8 @@ class ControlUnit {
   [[nodiscard]] bool GetMemWrite() const;
   [[nodiscard]] uint8_t GetAluOp() const;
   [[nodiscard]] bool GetBranch() const;
+  [[nodiscard]] bool GetLdbmStart() const;
+  [[nodiscard]] bool GetBigmulStart() const;
 
  protected:
   bool reg_write_ = false;
@@ -51,7 +53,7 @@ class ControlUnit {
   //custom
   bool ldbm_start_ = false;
   bool bigmul_start_ = false;
-  
+
   uint8_t alu_op_{};
 };
 
