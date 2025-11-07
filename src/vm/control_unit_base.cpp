@@ -36,6 +36,7 @@ bool ControlUnit::GetBranch() const {
   return branch_;
 }
 
+//custom
 bool ControlUnit::GetLdbmStart() const {
   return ldbm_start_;
 }

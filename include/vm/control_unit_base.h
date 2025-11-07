@@ -39,6 +39,7 @@ class ControlUnit {
   [[nodiscard]] bool GetMemWrite() const;
   [[nodiscard]] uint8_t GetAluOp() const;
   [[nodiscard]] bool GetBranch() const;
+  //custom
   [[nodiscard]] bool GetLdbmStart() const;
   [[nodiscard]] bool GetBigmulStart() const;
 
