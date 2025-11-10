@@ -528,6 +528,7 @@ void RVSSVM::WriteMemory() {
       bigmul_unit::write_offset += 64;
       if (bigmul_unit::write_offset >= 1024) {
           bigmul_unit::write_done = true;
+          bigmul_unit::bigmul_done = true;
         }
         return ;
     }
