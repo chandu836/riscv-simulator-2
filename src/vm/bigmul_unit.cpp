@@ -4,8 +4,12 @@ namespace bigmul_unit {
     bool bigmul_done_;
     bool ldbm_done_;
     size_t ldbm_offset;
+    size_t bigmul_prog;
+    size_t write_offset;
+    bool write_done;
     uint64_t base_addr_A;
     uint64_t base_addr_B;
+    uint64_t base_addr_res;
     uint8_t cacheA[512];
     uint8_t cacheB[512];
     uint8_t resultCache[1024];
@@ -15,9 +19,14 @@ namespace bigmul_unit {
         ldbm_offset = 0;
 
         bigmul_done_ = true;
+        bigmul_prog = 0;
+
+        write_done = true;
+        write_offset = 0;
 
         base_addr_A = 0;
         base_addr_B = 0;
+        base_addr_res = 0;
 
         std::fill(std::begin(cacheA), std::end(cacheA), 0);
         std::fill(std::begin(cacheB), std::end(cacheB), 0);
@@ -32,6 +41,10 @@ namespace bigmul_unit {
         return ldbm_done_;
     }
 
+    bool GetWriteDone(){
+        return write_done;
+    }
+
     // void loadcache(const std::vector<uint8_t>& bufA, const std::vector<uint8_t>& bufB){
 
     // }
@@ -40,9 +53,9 @@ namespace bigmul_unit {
 
     }
 
-    std::size_t getResultSize(){
+    // std::size_t getResultSize(){
 
-    }
+    // }
 
     // void invalidateCaches(){
 
