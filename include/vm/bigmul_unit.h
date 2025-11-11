@@ -25,6 +25,7 @@ namespace bigmul_unit {
     [[nodiscard]] bool GetWriteDone()
 
     //void loadcache(const std::vector<uint8_t>& bufA, const std::vector<uint8_t>& bufB);
+    void start_bigmul();                 
     void executeBigmul();
     // [[nodiscard]] std::size_t getResultSize();
     //void invalidateCaches();

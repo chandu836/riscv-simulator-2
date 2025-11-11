@@ -462,8 +462,8 @@ void RVSSVM::WriteMemory() {
         }
         else if (bigmul_unit::ldbm_offset < 128) {
           for (size_t i = 0; i < 8 ; i++) {
-            bigmul_unit::cacheB[bigmul_unit::ldbm_offset + i - 512] = 
-            memory_controller_.ReadDoubleWord(bigmul_unit::base_addr_B + (bigmul_unit::ldbm_offset + i - 512)*8);
+            bigmul_unit::cacheB[bigmul_unit::ldbm_offset + i - 64] = 
+            memory_controller_.ReadDoubleWord(bigmul_unit::base_addr_B + (bigmul_unit::ldbm_offset + i - 64)*8);
           }
         }
         bigmul_unit::ldbm_offset += 8;
@@ -516,26 +516,43 @@ void RVSSVM::WriteMemory() {
 
   if (control_unit_.GetMemWrite()) {
     //custom
-    if(!bigmul_unit::GetWriteDone()){
-      if(bigmul_unit::write_offset<1024){
-        addr = bigmul_unit::base_addr_res;
-        for(int i=0;i<8;i++){
-          for (size_t i = 0; i < 8; ++i) {
-            old_bytes_vec.push_back(memory_controller_.ReadByte(addr + i));
-          }
-          memory_controller_.WriteDoubleWord(execution_result_, registers_.ReadGpr(rs2) & 0xFFFFFFFFFFFFFFFF);
-          for (size_t i = 0; i < 8; ++i) {
-            new_bytes_vec.push_back(memory_controller_.ReadByte(addr + i));
-          }
+    if (!bigmul_unit::GetWriteDone()) {
+
+    if (bigmul_unit::write_offset < 128) {
+
+        // Write 8 double-words per cycle
+        for (int k = 0; k < 8 && (bigmul_unit::write_offset + k) < 128; ++k) {
+
+            uint64_t index = bigmul_unit::write_offset + k;
+            uint64_t addr  = bigmul_unit::base_addr_res + index * 8ULL;
+            uint64_t word  = bigmul_unit::resultCache[index];
+
+            // record old bytes
+            for (int b = 0; b < 8; ++b) {
+                old_bytes_vec.push_back(memory_controller_.ReadByte(addr + b));
+            }
+
+            // write double-word
+            memory_controller_.WriteDoubleWord(addr, word);
+
+            // record new bytes
+            for (int b = 0; b < 8; ++b) {
+                new_bytes_vec.push_back(memory_controller_.ReadByte(addr + b));
+            }
         }
-      }
-      bigmul_unit::write_offset += 8;
-      if (bigmul_unit::write_offset >= 128) {
-          bigmul_unit::write_done = true;
-          bigmul_unit::bigmul_done = true;
-        }
-        return ;
+
+        // Move forward by 8 result words
+        bigmul_unit::write_offset += 8;
     }
+
+    // check if done
+    if (bigmul_unit::write_offset >= 128) {
+        bigmul_unit::write_done   = true;
+        bigmul_unit::bigmul_done_ = true;
+    }
+
+    return;
+}
     else{
       switch (funct3) {
       case 0b000: {// SB
