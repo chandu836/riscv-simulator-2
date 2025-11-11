@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cstdint>
+#include <cmath>
 #include "vm/bigmul_unit.h"
 
 namespace bigmul_unit {
@@ -42,16 +43,26 @@ namespace bigmul_unit {
         bool     valid;
     };
 
+    struct DelayItem {
+        MulBatch mb;    // value to retire to accumulator
+        int      remain; // number of CSA "stages" still to wait
+        bool     valid;
+    };
+
     static GenBatch  pGEN;
     static LoadBatch pLOAD;
     static MulBatch  pMUL;
-    static MulBatch  pCSA1, pCSA2, pCSA3, pCSA4, pCSA5, pCSA6, pCSA7;
+    static DelayItem dq[8];
+    static int dq_len;
 
     static uint64_t acc0, acc1, acc2;
+
+    static int pending_depth_for_pMUL;
 
     static inline GenBatch  make_empty_gen()  { GenBatch b{}; b.count=0; b.valid=false; return b; }
     static inline LoadBatch make_empty_load() { LoadBatch b{}; b.count=0; b.valid=false; return b; }
     static inline MulBatch  make_empty_mul()  { return MulBatch{0,0,0,false}; }
+    static inline DelayItem make_empty_item() { return DelayItem{make_empty_mul(), 0, false}; }
 
     static inline void acc_clear() { acc0 = acc1 = acc2 = 0; }
 
@@ -80,6 +91,26 @@ namespace bigmul_unit {
 
     static inline uint64_t acc_low64() { return acc0; }
 
+    static inline int csa_depth_for_count(int count) {
+        if (count <= 1) return 0;
+        double lg = std::log2((double)count);
+        int d = (int)std::ceil(lg) - 1;
+        if (d < 0) d = 0;
+        if (d > 7) d = 7; // hard cap (we only keep a tiny queue)
+        return d;
+    }
+
+    static inline void dq_pop_front() {
+        if (dq_len == 0) return;
+        for (int i = 1; i < dq_len; ++i) dq[i-1] = dq[i];
+        dq[--dq_len] = make_empty_item();
+    }
+
+    static inline void dq_push(const MulBatch &mb, int remain) {
+        if (remain <= 0) return;        // should not queue zero-remaining
+        if (dq_len >= 8) return;        // protect against overflow (shouldn’t happen)
+        dq[dq_len++] = DelayItem{mb, remain, true};
+    }
 
     void reset(){
         ldbm_done_ = true;
@@ -105,8 +136,10 @@ namespace bigmul_unit {
         pGEN  = make_empty_gen();
         pLOAD = make_empty_load();
         pMUL  = make_empty_mul();
-        pCSA1 = pCSA2 = pCSA3 = pCSA4 = pCSA5 = pCSA6 = pCSA7 = make_empty_mul();
+        for (int i=0;i<8;++i) dq[i] = make_empty_item();
+        dq_len = 0;
 
+        pending_depth_for_pMUL = 0;
         acc_clear();
     }
 
@@ -122,8 +155,8 @@ namespace bigmul_unit {
         pGEN  = make_empty_gen();
         pLOAD = make_empty_load();
         pMUL  = make_empty_mul();
-        pCSA1 = pCSA2 = pCSA3 = pCSA4 = pCSA5 = pCSA6 = pCSA7 = make_empty_mul();
-
+        for (int i=0;i<8;++i) dq[i] = make_empty_item();
+        dq_len = 0;
         // Carry-in for s=0 is 0
         acc_clear();
 
@@ -154,24 +187,29 @@ namespace bigmul_unit {
 
         if(bigmul_prog == 0)start_bigmul();
 
-        if (pCSA7.valid) {
-            acc_add_u192(pCSA7.lo, pCSA7.hi,pCSA7.hi2);
+        if (dq_len > 0 && dq[0].valid && dq[0].remain == 0) {
+            const MulBatch& mb = dq[0].mb;
+            acc_add_u192(mb.lo, mb.hi, mb.hi2);
+            dq_pop_front();
         }
 
-        pCSA7 = pCSA6;
-        pCSA6 = pCSA5;
-        pCSA5 = pCSA4;
-        pCSA4 = pCSA3;
-        pCSA3 = pCSA2;
-        pCSA2 = pCSA1;
+        for (int i = 0; i < dq_len; ++i) {
+            if (dq[i].valid && dq[i].remain > 0)
+                dq[i].remain -= 1;
+        }
 
-        pCSA1 = make_empty_mul();
         if (pMUL.valid) {
-            pCSA1 = pMUL;
-            pCSA1.valid = true;
+            if (pending_depth_for_pMUL <= 0) {
+                // No CSA latency needed: retire immediately
+                acc_add_u192(pMUL.lo, pMUL.hi, pMUL.hi2);
+            } else {
+                // Queue with countdown = depth
+                dq_push(pMUL, pending_depth_for_pMUL);
+            }
         }
 
         pMUL = make_empty_mul();
+        pending_depth_for_pMUL = 0;
         if (pLOAD.valid) {
             uint64_t b0=0, b1=0, b2=0; // 192-bit local sum
             for (int t=0; t<pLOAD.count; ++t) {
@@ -194,6 +232,8 @@ namespace bigmul_unit {
             pMUL.hi = b1;
             pMUL.hi2 = b2;
             pMUL.valid = (pLOAD.count > 0);
+
+            pending_depth_for_pMUL = csa_depth_for_count(pLOAD.count);
         }
 
         pLOAD = make_empty_load();
@@ -223,10 +263,7 @@ namespace bigmul_unit {
             }
         }
 
-        const bool pipe_empty = 
-            !pGEN.valid && !pLOAD.valid && !pMUL.valid &&
-            !pCSA1.valid && !pCSA2.valid && !pCSA3.valid &&
-            !pCSA4.valid && !pCSA5.valid && !pCSA6.valid && !pCSA7.valid;
+        const bool pipe_empty = !pGEN.valid && !pLOAD.valid && !pMUL.valid && (dq_len == 0);
 
         if (gen_done_this_diag && pipe_empty) {
             resultCache[s_diag] = acc_low64();
@@ -241,12 +278,13 @@ namespace bigmul_unit {
 
             s_diag++;
             i_min = (s_diag > 63) ? (s_diag - 63) : 0;
-            i_max = (s_diag < 63) ?  s_diag        : 63;
+            i_max = (s_diag < 63) ?  s_diag       : 63;
             k_iter = i_min;
             pGEN  = make_empty_gen();
             pLOAD = make_empty_load();
             pMUL  = make_empty_mul();
-            pCSA1 = pCSA2 = pCSA3 = pCSA4 = pCSA5 = pCSA6 = pCSA7 = make_empty_mul();
+            for (int i=0;i<8;++i) dq[i] = make_empty_item();
+            dq_len = 0;
 
             gen_done_this_diag = false;
         }

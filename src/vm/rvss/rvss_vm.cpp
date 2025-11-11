@@ -901,8 +901,9 @@ void RVSSVM::Run() {
   uint64_t instruction_executed = 0;
 
   while (!stop_requested_ && program_counter_ < program_size_) {
-    if (instruction_executed > vm_config::config.getInstructionExecutionLimit())
+    if (instruction_executed > vm_config::config.getInstructionExecutionLimit()){
       break;
+    }
       //custom
       if(!bigmul_unit::GetLdbmDone()){
         WriteMemory();

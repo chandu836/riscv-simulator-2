@@ -29,7 +29,7 @@ enum Instruction {
   kLoadType,
 
   //custom
-  kSRtype
+  kSRtype,
   kRLtype,
   
   kCsrType, // CSR type instructions
@@ -663,7 +663,7 @@ extern std::unordered_map<std::string, CSR_ITypeInstructionEncoding> CSR_I_type_
 
 //custom
 extern std::unordered_map<std::string, RLTypeInstructionEncoding> RL_type_instruction_encoding_map;
-extern std::unordered_map<std::string, SRTypeInstructionEncoding> SR_type_instruction_encoding_map
+extern std::unordered_map<std::string, SRTypeInstructionEncoding> SR_type_instruction_encoding_map;
 
 extern std::unordered_map<std::string, FDRTypeInstructionEncoding> F_D_R_type_instruction_encoding_map;
 extern std::unordered_map<std::string, FDR1TypeInstructionEncoding> F_D_R1_type_instruction_encoding_map;
