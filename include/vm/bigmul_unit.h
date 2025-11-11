@@ -15,9 +15,9 @@ namespace bigmul_unit {
     extern uint64_t base_addr_A;
     extern uint64_t base_addr_B;
     extern int64_t base_addr_res;
-    extern uint8_t cacheA[512];
-    extern uint8_t cacheB[512];
-    extern uint8_t resultCache[1024];
+    extern uint64_t cacheA[64];
+    extern uint64_t cacheB[64];
+    extern uint64_t resultCache[128];
 
     void reset();
     [[nodiscard]] bool GetBigmulDone();

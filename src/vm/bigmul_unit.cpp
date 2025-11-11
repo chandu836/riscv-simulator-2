@@ -10,9 +10,9 @@ namespace bigmul_unit {
     uint64_t base_addr_A;
     uint64_t base_addr_B;
     uint64_t base_addr_res;
-    uint8_t cacheA[512];
-    uint8_t cacheB[512];
-    uint8_t resultCache[1024];
+    uint64_t cacheA[64];
+    uint64_t cacheB[64];
+    uint64_t resultCache[128];
 
     void reset(){
         ldbm_done_ = true;
