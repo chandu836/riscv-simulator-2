@@ -1,7 +1,10 @@
 #include <algorithm>
 #include <cstdint>
 #include <cmath>
+#include <iostream>
 #include "vm/bigmul_unit.h"
+#pragma GCC diagnostic ignored "-Wpedantic"
+
 
 namespace bigmul_unit {
     bool bigmul_done_;
@@ -183,6 +186,7 @@ namespace bigmul_unit {
     // }
 
     void executeBigmul(){
+        std::cout << "[BIGMUL EXEC] prog=" << bigmul_prog << std::endl;
         if (bigmul_done_) return;
 
         if(bigmul_prog == 0)start_bigmul();
@@ -273,6 +277,7 @@ namespace bigmul_unit {
                 resultCache[127] = acc_low64();
                 bigmul_prog  = 0;
                 write_done   = false;
+                std::cout << "[BIGMUL DONE] finishing compute phase" << std::endl;
                 return;
             }
 
