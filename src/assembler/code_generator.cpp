@@ -87,7 +87,7 @@ uint32_t generateRLTypeMachineCode(const ICUnit &block) {
 }
 
 uint32_t generateSRTypeMachineCode(const ICUnit &block) {
-  const auto &encoding = instruction_set::S_type_instruction_encoding_map.at(block.getOpcode());
+  const auto &encoding = instruction_set::SR_type_instruction_encoding_map.at(block.getOpcode());
   const uint32_t rs1 = extractRegisterIndex(block.getRs1());
   const uint32_t rs2 = extractRegisterIndex(block.getRs2());
   const uint32_t imm = static_cast<uint32_t>(std::stoi(block.getImm()));
