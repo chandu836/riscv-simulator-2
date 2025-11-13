@@ -47,25 +47,42 @@ void RVSSVM::Fetch() {
 void RVSSVM::Decode() {
   control_unit_.SetControlSignals(current_instruction_);
 
-  //control signals custom and required values
-  if (((current_instruction_ & 0b1111111) == get_instr_encoding(Instruction::kldbm).opcode) && control_unit_.GetLdbmStart() && bigmul_unit::GetLdbmDone()) {
+  // Control signals for custom instructions
+  uint8_t opcode = current_instruction_ & 0b1111111;
+  std::cout << "[DECODE] opcode=" << std::hex << (int)opcode  << std::dec << std::endl;
+  
+  // Control signals for custom instructions
+  if ((opcode == get_instr_encoding(Instruction::kldbm).opcode) && control_unit_.GetLdbmStart() && !bigmul_unit::GetLdbmDone()) {
+    
+    //std::cout << "[DECODE] opcode=" << std::hex << get_instr_encoding(Instruction::kldbm).opcode  << std::dec << std::endl;
+    //std::cout << "[LDBM START] Condition met - starting LDBM" << std::endl;
+    uint8_t rs1 = (current_instruction_ >> 15) & 0b1111111;
+    uint8_t rs2 = (current_instruction_ >> 20) & 0b1111111;
 
-        uint8_t rs1 = (current_instruction_ >> 15) & 0x1F;
-        uint8_t rs2 = (current_instruction_ >> 20) & 0x1F;
+    // std::cout << "[LDBM DEBUG] rs1=" << std::dec << (int)rs1
+    //         << " rs2=" << (int)rs2 << std::hex << std::dec << std::endl;
 
-        bigmul_unit::base_addr_A = registers_.ReadGpr(rs1);
-        bigmul_unit::base_addr_B = registers_.ReadGpr(rs2);
-
-        bigmul_unit::ldbm_offset = 0;
-        bigmul_unit::ldbm_done_ = false;
+    bigmul_unit::base_addr_A = registers_.ReadGpr(rs1);
+    bigmul_unit::base_addr_B = registers_.ReadGpr(rs2);
+    bigmul_unit::ldbm_offset = 0;
+    bigmul_unit::ldbm_done_ = false;
+    
+    // std::cout << "[LDBM] Starting load from A=" << std::hex << bigmul_unit::base_addr_A 
+    //           << " B=" << bigmul_unit::base_addr_B << std::dec << std::endl;
   }
-  else if (((current_instruction_ & 0b1111111) == get_instr_encoding(Instruction::kbigmul).opcode) && control_unit_.GetBigmulStart() && bigmul_unit::GetBigmulDone()) {
+  else if ((opcode == get_instr_encoding(Instruction::kbigmul).opcode) 
+           && control_unit_.GetBigmulStart() && !bigmul_unit::GetBigmulDone()) {
+    
+    //std::cout << "[BIGMUL START] Condition met - starting BIGMUL" << std::endl;
+    uint8_t rs1 = (current_instruction_ >> 15) & 0b1111111;
+    bigmul_unit::base_addr_res = registers_.ReadGpr(rs1);
     bigmul_unit::bigmul_prog = 0;
     bigmul_unit::bigmul_done_ = false;
     bigmul_unit::write_offset = 0;
     bigmul_unit::write_done = true;
-    uint8_t rs1 = (current_instruction_ >> 15) & 0x1F;
-    bigmul_unit::base_addr_res = registers_.ReadGpr(rs1);
+    
+  //   std::cout << "[BIGMUL] Starting multiplication, result to: " 
+  //             << std::hex << bigmul_unit::base_addr_res << std::dec << std::endl;
   }
 }
 
@@ -83,7 +100,8 @@ void RVSSVM::Execute() {
     bigmul_unit::executeBigmul();   // kicks off the process
     return;
   }
-  else if (instruction_set::isFInstruction(current_instruction_)) { // RV64 F
+  // else 
+  if (instruction_set::isFInstruction(current_instruction_)) { // RV64 F
     ExecuteFloat();
     return;
   } else if (instruction_set::isDInstruction(current_instruction_)) {
@@ -430,7 +448,7 @@ void RVSSVM::HandleSyscall() {
 void RVSSVM::WriteMemory() {
 
   //custom
-    if (!bigmul_unit::GetLdbmDone()) {
+    if (control_unit_.GetLdbmStart() && !bigmul_unit::GetLdbmDone()) {
 
         // std::vector<uint8_t> bufA(512);
         // std::vector<uint8_t> bufB(512);
@@ -442,24 +460,58 @@ void RVSSVM::WriteMemory() {
 
         // bigmul_unit::loadcache(bufA, bufB);
         // bigmul_unit::ldbm_done_ = true;
-        if (bigmul_unit::ldbm_offset < 64) {
-          for (size_t i = 0; i < 8 ; i++) {
-            bigmul_unit::cacheA[bigmul_unit::ldbm_offset + i] = 
-            memory_controller_.ReadDoubleWord(bigmul_unit::base_addr_A + (bigmul_unit::ldbm_offset + i)*8);
-          }
-        }
-        else if (bigmul_unit::ldbm_offset < 128) {
-          for (size_t i = 0; i < 8 ; i++) {
-            bigmul_unit::cacheB[bigmul_unit::ldbm_offset + i - 64] = 
-            memory_controller_.ReadDoubleWord(bigmul_unit::base_addr_B + (bigmul_unit::ldbm_offset + i - 64)*8);
-          }
-        }
-        bigmul_unit::ldbm_offset += 8;
+        // std::cout << "[LDBM] offset=" << bigmul_unit::ldbm_offset
+        //       << " baseA=" << std::hex << bigmul_unit::base_addr_A
+        //       << " baseB=" << bigmul_unit::base_addr_B << std::dec << std::endl;
 
-        if (bigmul_unit::ldbm_offset >= 128) {
-          bigmul_unit::ldbm_done_ = true;
+    // Load 8 doublewords (64 bytes) per cycle
+    if (bigmul_unit::ldbm_offset < 64) {
+      // Load from A (64 doublewords = 512 bytes)
+      for (size_t i = 0; i < 8; i++) {
+        uint64_t current_offset = bigmul_unit::ldbm_offset + i;
+        if (current_offset < 64) { // Safety check
+          uint64_t addr = bigmul_unit::base_addr_A + current_offset * 8;
+          bigmul_unit::cacheA[current_offset] = memory_controller_.ReadDoubleWord(addr);
         }
-        return ;
+      }
+//       if (bigmul_unit::ldbm_offset == 0) {
+//     std::cout << "[DEBUG A FIRST 8 QWORDS]\n";
+//     for (int i = 0; i < 8; i++) {
+//         std::cout << "A[" << i << "] = 0x"
+//                   << std::hex << bigmul_unit::cacheA[i]
+//                   << std::dec << "\n";
+//     }
+// }
+
+    } 
+    else if (bigmul_unit::ldbm_offset < 128) {
+      // Load from B (64 doublewords = 512 bytes)  
+      for (size_t i = 0; i < 8; i++) {
+        uint64_t current_offset = bigmul_unit::ldbm_offset + i - 64;
+        if (current_offset < 64) { // Safety check
+          uint64_t addr = bigmul_unit::base_addr_B + current_offset * 8;
+          bigmul_unit::cacheB[current_offset] = memory_controller_.ReadDoubleWord(addr);
+        }
+      }
+//       if (bigmul_unit::ldbm_offset == 64) {
+//     std::cout << "[DEBUG B FIRST 8 QWORDS]\n";
+//     for (int i = 0; i < 8; i++) {
+//         std::cout << "B[" << i << "] = 0x"
+//                   << std::hex << bigmul_unit::cacheB[i]
+//                   << std::dec << "\n";
+//     }
+// }
+
+    }
+    
+    bigmul_unit::ldbm_offset += 8;
+
+    // Check if done (64 for A + 64 for B = 128 total)
+    if (bigmul_unit::ldbm_offset >= 128) {
+      bigmul_unit::ldbm_done_ = true;
+      //std::cout << "[LDBM] Completed loading both operands" << std::endl;
+    }
+    return;
     }
   uint8_t opcode = current_instruction_ & 0b1111111;
   uint8_t rs2 = (current_instruction_ >> 20) & 0b11111;
@@ -519,12 +571,10 @@ void RVSSVM::WriteMemory() {
 
 
   //custom
-    if (bigmul_unit::bigmul_prog == 0 && !bigmul_unit::GetWriteDone() && opcode != get_instr_encoding(Instruction::kbigmul).opcode) {
+    if (control_unit_.GetBigmulStart() && !bigmul_unit::GetBigmulDone() && !bigmul_unit::GetWriteDone()) {
     if (bigmul_unit::write_offset < 128) {
-
         // Write 8 double-words per cycle
         for (int k = 0; k < 8 && (bigmul_unit::write_offset + k) < 128; ++k) {
-
             uint64_t index = bigmul_unit::write_offset + k;
             uint64_t addr  = bigmul_unit::base_addr_res + index * 8ULL;
             uint64_t word  = bigmul_unit::resultCache[index];
@@ -541,6 +591,15 @@ void RVSSVM::WriteMemory() {
             for (int b = 0; b < 8; ++b) {
                 new_bytes_vec.push_back(memory_controller_.ReadByte(addr + b));
             }
+//             if (bigmul_unit::write_offset == 0) {
+//     std::cout << "[DEBUG RESULT FIRST 8 QWORDS]\n";
+//     for (int i = 0; i < 8; i++) {
+//         std::cout << "RES[" << i << "] = 0x"
+//                   << std::hex << bigmul_unit::resultCache[i]
+//                   << std::dec << "\n";
+//     }
+// }
+
         }
 
         // Move forward by 8 result words
@@ -554,7 +613,7 @@ void RVSSVM::WriteMemory() {
     }
 
     return;
-}
+  }
   if (control_unit_.GetMemWrite()) {
     
       switch (funct3) {
@@ -907,30 +966,28 @@ void RVSSVM::Run() {
     if (instruction_executed > vm_config::config.getInstructionExecutionLimit()){
       break;
     }
-      //custom
-      if(!bigmul_unit::GetLdbmDone()){
-        std::cout << "[LDBM] offset=" << bigmul_unit::ldbm_offset
-              << " baseA=" << std::hex << bigmul_unit::base_addr_A
-              << " baseB=" << bigmul_unit::base_addr_B << std::dec << std::endl;
-        WriteMemory();
-        cycle_s_++;
-        continue;
-      }
-      if (!bigmul_unit::GetBigmulDone()) {
-        if (!bigmul_unit::GetWriteDone()) {
-        std::cout << "[BIGMUL WRITE] write_offset=" << bigmul_unit::write_offset
-                  << " base_res=" << std::hex << bigmul_unit::base_addr_res << std::dec
-                  << std::endl;
-        WriteMemory();
-        cycle_s_++;
-        continue;
+
+      // Custom instruction stall logic
+    if (control_unit_.GetLdbmStart() && !bigmul_unit::GetLdbmDone()) {
+      //std::cout << "[LDBM Stall] offset=" << bigmul_unit::ldbm_offset << std::endl;
+      WriteMemory(); // Only do LDBM loading
+      cycle_s_++;
+      continue; // Stall pipeline
     }
 
-    std::cout << "[BIGMUL EXEC] prog=" << bigmul_unit::bigmul_prog << std::endl;
-    bigmul_unit::executeBigmul();   // advance multi-cycle logic
-    cycle_s_++;
-    continue;  // stall pipeline
+    if (control_unit_.GetBigmulStart() && !bigmul_unit::GetBigmulDone()) {
+      if (!bigmul_unit::GetWriteDone()) {
+        //std::cout << "[BIGMUL Write Stall] write_offset=" << bigmul_unit::write_offset << std::endl;
+        WriteMemory(); // Only do result writing
+        cycle_s_++;
+        continue; // Stall pipeline
+      } else {
+        //std::cout << "[BIGMUL Exec Stall] prog=" << bigmul_unit::bigmul_prog << std::endl;
+        bigmul_unit::executeBigmul(); // Advance computation
+        cycle_s_++;
+        continue; // Stall pipeline
       }
+    }
 
     Fetch();
     Decode();
@@ -951,36 +1008,34 @@ void RVSSVM::Run() {
 }
 
 void RVSSVM::DebugRun() {
+  //std::cout << "[LDBM Stall] offset=" << bigmul_unit::ldbm_offset << std::endl;
   ClearStop();
   uint64_t instruction_executed = 0;
   while (!stop_requested_ && program_counter_ < program_size_) {
     if (instruction_executed > vm_config::config.getInstructionExecutionLimit())
       break;
 
-    //custom
-      if(!bigmul_unit::GetLdbmDone()){
-        std::cout << "[LDBM] offset=" << bigmul_unit::ldbm_offset
-              << " baseA=" << std::hex << bigmul_unit::base_addr_A
-              << " baseB=" << bigmul_unit::base_addr_B << std::dec << std::endl;
-        WriteMemory();
-        cycle_s_++;
-        continue;
-      }
-      if (!bigmul_unit::GetBigmulDone()) {
-        if (!bigmul_unit::GetWriteDone()) {
-        std::cout << "[BIGMUL WRITE] write_offset=" << bigmul_unit::write_offset
-                  << " base_res=" << std::hex << bigmul_unit::base_addr_res << std::dec
-                  << std::endl;
-        WriteMemory();
-        cycle_s_++;
-        continue;
+      // Custom instruction stall logic
+    if (control_unit_.GetLdbmStart() && !bigmul_unit::GetLdbmDone()) {
+      std::cout << "[LDBM Stall] offset=" << bigmul_unit::ldbm_offset << std::endl;
+      WriteMemory(); // Only do LDBM loading
+      cycle_s_++;
+      continue; // Stall pipeline
     }
 
-    std::cout << "[BIGMUL EXEC] prog=" << bigmul_unit::bigmul_prog << std::endl;
-    bigmul_unit::executeBigmul();   // advance multi-cycle logic
-    cycle_s_++;
-    continue;  // stall pipeline
+    if (control_unit_.GetBigmulStart() && !bigmul_unit::GetBigmulDone()) {
+      if (!bigmul_unit::GetWriteDone()) {
+        std::cout << "[BIGMUL Write Stall] write_offset=" << bigmul_unit::write_offset << std::endl;
+        WriteMemory(); // Only do result writing
+        cycle_s_++;
+        continue; // Stall pipeline
+      } else {
+        //std::cout << "[BIGMUL Exec Stall] prog=" << bigmul_unit::bigmul_prog << std::endl;
+        bigmul_unit::executeBigmul(); // Advance computation
+        cycle_s_++;
+        continue; // Stall pipeline
       }
+    }
 
     current_delta_.old_pc = program_counter_;
     if (std::find(breakpoints_.begin(), breakpoints_.end(), program_counter_) == breakpoints_.end()) {
@@ -1029,38 +1084,42 @@ void RVSSVM::DebugRun() {
 }
 
 void RVSSVM::Step() {
-  //custom
-  if (!bigmul_unit::GetLdbmDone()) {
-        WriteMemory();
-        cycle_s_++;
+   // Custom instruction stall logic
+  if (control_unit_.GetLdbmStart() && !bigmul_unit::GetLdbmDone()) {
+    std::cout << "[LDBM Stall] offset=" << bigmul_unit::ldbm_offset << std::endl;
+    WriteMemory(); // Only do LDBM loading
+    cycle_s_++;
+    
+    output_status_ = "VM_STEP_STALL";
+    DumpRegisters(globals::registers_dump_file_path, registers_);
+    DumpState(globals::vm_state_dump_file_path);
+    current_delta_ = StepDelta();
+    return; // Return instead of continue
+  }
 
-        // std::cout << "[LDBM Stall] offset=" 
-        //           << bigmul_unit::ldbm_offset << std::endl;
-
-        output_status_ = "VM_STEP_STALL";
-        DumpRegisters(globals::registers_dump_file_path, registers_);
-        DumpState(globals::vm_state_dump_file_path);
-        current_delta_ = StepDelta();
-        return;
+  if (control_unit_.GetBigmulStart() && !bigmul_unit::GetBigmulDone()) {
+    if (!bigmul_unit::GetWriteDone()) {
+      std::cout << "[BIGMUL Write Stall] write_offset=" << bigmul_unit::write_offset << std::endl;
+      WriteMemory(); // Only do result writing
+      cycle_s_++;
+      
+      output_status_ = "VM_STEP_STALL";
+      DumpRegisters(globals::registers_dump_file_path, registers_);
+      DumpState(globals::vm_state_dump_file_path);
+      current_delta_ = StepDelta();
+      return; // Return instead of continue
+    } else {
+      //std::cout << "[BIGMUL Exec Stall] prog=" << bigmul_unit::bigmul_prog << std::endl;
+      bigmul_unit::executeBigmul(); // Advance computation
+      cycle_s_++;
+      
+      output_status_ = "VM_STEP_STALL";
+      DumpRegisters(globals::registers_dump_file_path, registers_);
+      DumpState(globals::vm_state_dump_file_path);
+      current_delta_ = StepDelta();
+      return; // Return instead of continue
     }
-    if (!bigmul_unit::GetBigmulDone()) {
-      if (!bigmul_unit::GetWriteDone()) {
-          WriteMemory();
-          cycle_s_++;
-          output_status_ = "VM_STEP_STALL";
-          DumpRegisters(globals::registers_dump_file_path, registers_);
-          DumpState(globals::vm_state_dump_file_path);
-          current_delta_ = StepDelta();
-          return;
-        }
-        bigmul_unit::executeBigmul();   // advance multi-cycle logic
-        cycle_s_++;
-        output_status_ = "VM_STEP_STALL";
-        DumpRegisters(globals::registers_dump_file_path, registers_);
-        DumpState(globals::vm_state_dump_file_path);
-        current_delta_ = StepDelta();
-        return;
-      }
+    }
   current_delta_.old_pc = program_counter_;
   if (program_counter_ < program_size_) {
     Fetch();
@@ -1107,11 +1166,11 @@ void RVSSVM::Undo() {
     return;
   }
   //custom
-  while (!bigmul_unit::GetLdbmDone()) {
+  while (control_unit_.GetLdbmStart() && !bigmul_unit::GetLdbmDone()) {
     WriteMemory();
     cycle_s_++;
   }
-  while (!bigmul_unit::GetBigmulDone()) {
+  while (control_unit_.GetBigmulStart() && !bigmul_unit::GetBigmulDone()) {
     if (!bigmul_unit::GetWriteDone()) {
           WriteMemory();
           cycle_s_++;
@@ -1176,11 +1235,11 @@ void RVSSVM::Redo() {
     return;
   }
   //custom
-  while (!bigmul_unit::GetLdbmDone()) {
+  while (control_unit_.GetLdbmStart() && !bigmul_unit::GetLdbmDone()) {
     WriteMemory();
     cycle_s_++;
   }
-  while (!bigmul_unit::GetBigmulDone()) {
+  while (control_unit_.GetBigmulStart() && !bigmul_unit::GetBigmulDone()) {
      if (!bigmul_unit::GetWriteDone()) {
           WriteMemory();
           cycle_s_++;

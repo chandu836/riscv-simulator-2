@@ -186,7 +186,7 @@ namespace bigmul_unit {
     // }
 
     void executeBigmul(){
-        std::cout << "[BIGMUL EXEC] prog=" << bigmul_prog << std::endl;
+        //std::cout << "[BIGMUL EXEC] prog=" << bigmul_prog << std::endl;
         if (bigmul_done_) return;
 
         if(bigmul_prog == 0)start_bigmul();
@@ -217,8 +217,9 @@ namespace bigmul_unit {
         if (pLOAD.valid) {
             uint64_t b0=0, b1=0, b2=0; // 192-bit local sum
             for (int t=0; t<pLOAD.count; ++t) {
+                for(int l=0; l<pLOAD.count;++l){
                 // NOTE: pairwise product only (NO nested loop!)
-                __uint128_t p = ( (__uint128_t)pLOAD.Ai[t] * (__uint128_t)pLOAD.Bj[t] );
+                __uint128_t p = ( (__uint128_t)pLOAD.Ai[t] * (__uint128_t)pLOAD.Bj[l] );
                 uint64_t lo = (uint64_t)p;
                 uint64_t hi = (uint64_t)(p >> 64);
 
@@ -231,6 +232,7 @@ namespace bigmul_unit {
                 uint64_t c1 = (uint64_t)(t1 >> 64);
 
                 b2 += c1;
+                }
             }
             pMUL.lo = b0;
             pMUL.hi = b1;
@@ -277,7 +279,7 @@ namespace bigmul_unit {
                 resultCache[127] = acc_low64();
                 bigmul_prog  = 0;
                 write_done   = false;
-                std::cout << "[BIGMUL DONE] finishing compute phase" << std::endl;
+                //std::cout << "[BIGMUL DONE] finishing compute phase" << std::endl;
                 return;
             }
 
