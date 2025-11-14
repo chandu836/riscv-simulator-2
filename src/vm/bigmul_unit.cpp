@@ -7,18 +7,18 @@
 
 
 namespace bigmul_unit {
-    bool bigmul_done_;
-    bool ldbm_done_;
-    size_t ldbm_offset;
-    size_t bigmul_prog;
-    size_t write_offset;
-    bool write_done;
-    uint64_t base_addr_A;
-    uint64_t base_addr_B;
-    uint64_t base_addr_res;
-    uint64_t cacheA[64];
-    uint64_t cacheB[64];
-    uint64_t resultCache[128];
+    bool bigmul_done_ = true;
+    bool ldbm_done_ = true;
+    size_t ldbm_offset = 0;
+    size_t bigmul_prog = 0;
+    size_t write_offset = 0;
+    bool write_done = true;
+    uint64_t base_addr_A = 0;
+    uint64_t base_addr_B = 0;
+    uint64_t base_addr_res = 0;
+    uint64_t cacheA[64] = {0};
+    uint64_t cacheB[64] = {0};
+    uint64_t resultCache[128] = {0};
 
     static int s_diag;          // current diagonal 0..126
     static int i_min, i_max;    // bounds for s_diag
@@ -164,6 +164,8 @@ namespace bigmul_unit {
         acc_clear();
 
         // Mark bigmul running
+        // ldbm_offset = 0;
+        // write_offset = 0;
         bigmul_done_ = false;
         bigmul_prog  = 1; // just a “running” marker you already had
         write_done   = true;
@@ -217,9 +219,9 @@ namespace bigmul_unit {
         if (pLOAD.valid) {
             uint64_t b0=0, b1=0, b2=0; // 192-bit local sum
             for (int t=0; t<pLOAD.count; ++t) {
-                for(int l=0; l<pLOAD.count;++l){
+                // for(int l=0; l<pLOAD.count;++l){
                 // NOTE: pairwise product only (NO nested loop!)
-                __uint128_t p = ( (__uint128_t)pLOAD.Ai[t] * (__uint128_t)pLOAD.Bj[l] );
+                __uint128_t p = ( (__uint128_t)pLOAD.Ai[t] * (__uint128_t)pLOAD.Bj[t] );
                 uint64_t lo = (uint64_t)p;
                 uint64_t hi = (uint64_t)(p >> 64);
 
@@ -232,7 +234,7 @@ namespace bigmul_unit {
                 uint64_t c1 = (uint64_t)(t1 >> 64);
 
                 b2 += c1;
-                }
+                // }
             }
             pMUL.lo = b0;
             pMUL.hi = b1;
@@ -304,4 +306,49 @@ namespace bigmul_unit {
     // void invalidateCaches(){
 
     // }
+
+    BigmulState snapshot() {
+    BigmulState s;
+    s.bigmul_done   = bigmul_done_;
+    s.ldbm_done     = ldbm_done_;
+    s.write_done    = write_done;
+    s.ldbm_offset   = ldbm_offset;
+    s.bigmul_prog   = bigmul_prog;
+    s.write_offset  = write_offset;
+    s.base_addr_A   = base_addr_A;
+    s.base_addr_B   = base_addr_B;
+    s.base_addr_res = base_addr_res;
+
+    for (int i=0;i<64;i++){
+        s.cacheA[i] = cacheA[i];
+        s.cacheB[i] = cacheB[i];
+    }
+    for (int i=0;i<128;i++){
+        s.resultCache[i] = resultCache[i];
+    }
+
+    return s;
+}
+
+void restore(const BigmulState &s) {
+    bigmul_done_   = s.bigmul_done;
+    ldbm_done_     = s.ldbm_done;
+    write_done     = s.write_done;
+    ldbm_offset    = s.ldbm_offset;
+    bigmul_prog    = s.bigmul_prog;
+    write_offset   = s.write_offset;
+    base_addr_A    = s.base_addr_A;
+    base_addr_B    = s.base_addr_B;
+    base_addr_res  = s.base_addr_res;
+
+    for (int i=0;i<64;i++){
+        cacheA[i] = s.cacheA[i];
+        cacheB[i] = s.cacheB[i];
+    }
+    for (int i=0;i<128;i++){
+        resultCache[i] = s.resultCache[i];
+    }
+    // We DO NOT restore pipeline.
+    // Step() always finishes a whole LDBM/BIGMUL and reset() clears caches.
+}
 }

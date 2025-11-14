@@ -8,6 +8,7 @@
 
 
 #include "vm/vm_base.h"
+#include "vm/bigmul_unit.h"
 
 #include "rvss_control_unit.h"
 
@@ -36,6 +37,10 @@ struct StepDelta {
   uint64_t new_pc;
   std::vector<RegisterChange> register_changes;
   std::vector<MemoryChange> memory_changes;
+
+  //custom
+  bigmul_unit::BigmulState bigmul_state; // snapshot of bigmul state BEFORE the step
+  uint8_t custom_instr_executed = 0;     // 0 = none, 1 = LDBM, 2 = BIGMUL
 };
 
 

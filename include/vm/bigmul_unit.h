@@ -29,6 +29,25 @@ namespace bigmul_unit {
     void executeBigmul();
     // [[nodiscard]] std::size_t getResultSize();
     // void invalidateCaches();
+
+    struct BigmulState {
+        bool bigmul_done;
+        bool ldbm_done;
+        bool write_done;
+        size_t ldbm_offset;
+        size_t bigmul_prog;
+        size_t write_offset;
+        uint64_t base_addr_A;
+        uint64_t base_addr_B;
+        uint64_t base_addr_res;
+
+        uint64_t cacheA[64];
+        uint64_t cacheB[64];
+        uint64_t resultCache[128];
+    };
+
+    BigmulState snapshot();
+    void restore(const BigmulState &s);
 }
 
 #endif // BIGMUL_UNIT_H
