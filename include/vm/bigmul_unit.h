@@ -26,6 +26,10 @@ namespace bigmul_unit {
 
     // void loadcache(const std::vector<uint8_t>& bufA, const std::vector<uint8_t>& bufB);
     void start_bigmul();
+    void singlecycle();
+    void staged3pipeline();
+    void staged7pipeline();
+    void systolicmultiply();
     void executeBigmul();
     // [[nodiscard]] std::size_t getResultSize();
     // void invalidateCaches();

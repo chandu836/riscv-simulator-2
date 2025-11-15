@@ -5,21 +5,21 @@
 
 # A: 64 limbs (8 bytes each). Example two non-zero limbs, rest zero
 A:
-    .dword 0x499602d2
-    .dword 0x39447
-    .zero 496
+    dword 0x499602d2
+    dword 0x39447
+    zero 496
 
 # B: 64 limbs
 B:
-    .dword 0x75bcd15
-    .zero 504
+    dword 0x75bcd15
+    zero 504
 
 # RES: 128 limbs (result)
 RES:
-    .zero 1024
+    zero 1024
 
 .text
-.global main
+
 
 main:
     # set base pointers
@@ -71,7 +71,7 @@ loop_j:
     add   a6, t3, a6
 
     # if carry == 0 skip propagation
-    beqz  a6, skip_propagate
+    beq  a6,x0, skip_propagate
 
 propagate_loop:
     # increment index k (t2 = k+1)
@@ -91,7 +91,7 @@ propagate_loop:
     sltu  a6, a5, a6
 
     # continue if carry still non-zero
-    bnez  a6, propagate_loop
+    bne  a6,x0, propagate_loop
 
 skip_propagate:
     # j++
