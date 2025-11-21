@@ -1,6 +1,7 @@
     .data
 
 # 4096-bit A: 64 signed 64-bit dwords, all = 0x7fffffffffffffff
+# align 8
 A:
     dword 0x7fffffffffffffff   # A[0]
     dword 0x7fffffffffffffff   # A[1]

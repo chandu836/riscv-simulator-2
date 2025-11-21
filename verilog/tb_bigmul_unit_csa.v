@@ -36,9 +36,10 @@ module tb_bigmul_unit_csa();
 
         // Simple test: A = large number (limb0 = all 1s, limb1 = 1)
         // B = small (16)
-        uut.A[0] = 64'h0000_0000_0000_0038;
-        uut.A[1] = 64'h0000_0000_0000_0003;
-        uut.B[0] = 64'h0000_0000_0000_0017;
+        for (i = 0; i<64; i = i + 1) begin
+            uut.A[i] = 64'h7fffffffffffffff;
+            uut.B[i] = 64'h7fffffffffffffff;
+        end
 
         #20;
         $display("TB: asserting start at time %0t", $time);
