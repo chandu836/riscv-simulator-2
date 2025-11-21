@@ -187,6 +187,96 @@ namespace bigmul_unit {
 
     // }
 
+    void bigmul_pipeline_streaming() {
+    if (bigmul_done_) return;
+
+    // start if needed
+    if (bigmul_prog == 0) start_bigmul();
+
+    // STEP 1 — retire previous MUL into accumulator
+    if (pMUL.valid)
+        acc_add_u192(pMUL.lo, pMUL.hi, pMUL.hi2);
+
+    // STEP 2 — LOAD->MUL
+    MulBatch nextMUL = make_empty_mul();
+    if (pLOAD.valid) {
+        uint64_t b0 = 0, b1 = 0, b2 = 0;
+        for (int t=0; t<pLOAD.count; ++t) {
+            __uint128_t p = ( (__uint128_t)pLOAD.Ai[t] * (__uint128_t)pLOAD.Bj[t] );
+            uint64_t lo = (uint64_t)p;
+            uint64_t hi = (uint64_t)(p >> 64);
+
+            unsigned __int128 x = (unsigned __int128)b0 + lo;
+            b0 = (uint64_t)x; 
+            uint64_t c0 = (uint64_t)(x >> 64);
+
+            unsigned __int128 y = (unsigned __int128)b1 + hi + c0;
+            b1 = (uint64_t)y;
+            uint64_t c1 = (uint64_t)(y >> 64);
+
+            b2 += c1;
+        }
+        nextMUL = {b0,b1,b2,true};
+    }
+
+    // STEP 3 — GEN->LOAD
+    LoadBatch nextLOAD = make_empty_load();
+    if (pGEN.valid) {
+        nextLOAD.count = pGEN.count;
+        for (int t = 0; t < pGEN.count; ++t) {
+            nextLOAD.Ai[t] = cacheA[pGEN.i[t]];
+            nextLOAD.Bj[t] = cacheB[pGEN.j[t]];
+        }
+        nextLOAD.valid = true;
+    }
+
+    // STEP 4 — NEW GEN (streaming)
+    GenBatch nextGEN = make_empty_gen();
+    if (s_diag < 128) {
+        if (k_iter <= i_max) {
+            int produced = 0;
+            for (; produced < 25 && k_iter <= i_max; ++k_iter, ++produced) {
+                nextGEN.i[produced] = k_iter;
+                nextGEN.j[produced] = s_diag - k_iter;
+            }
+            nextGEN.count = produced;
+            nextGEN.valid = (produced > 0);
+        } else {
+            // finish diagonal result
+            resultCache[s_diag] = acc_low64();
+            acc_shr_64();
+
+            // next diag
+            s_diag++;
+            if (s_diag == 128) {
+                bigmul_prog = 0;
+                bigmul_done_ = true;
+                write_done = false;
+                return;
+            }
+
+            i_min = (s_diag > 63) ? s_diag - 63 : 0;
+            i_max = (s_diag < 63) ? s_diag : 63;
+            k_iter = i_min;
+
+            // GEN next diagonal immediately
+            int produced = 0;
+            for (; produced < 25 && k_iter <= i_max; ++k_iter, ++produced) {
+                nextGEN.i[produced] = k_iter;
+                nextGEN.j[produced] = s_diag - k_iter;
+            }
+            nextGEN.count = produced;
+            nextGEN.valid = (produced > 0);
+        }
+    }
+
+    // advance pipeline
+    pMUL  = nextMUL;
+    pLOAD = nextLOAD;
+    pGEN  = nextGEN;
+}
+
+
     void singlecycle(){
         // If nothing to do, return
     if (bigmul_done_) return;
@@ -552,7 +642,7 @@ if (bigmul_done_) return;
     }
 
     void executeBigmul(){
-        singlecycle();
+        bigmul_pipeline_streaming();
 
     }
 
