@@ -4,7 +4,8 @@ module bigmul_unit_csa (
     input  wire        rstn,        // active low reset
     input  wire        start,       // pulse to start
     output reg         busy,        // true while computing
-    output reg         compute_done // true when computation is done
+    output reg         compute_done, // true when computation is done
+    input  wire [31:0] operand_size  // in dwords
 );
 
     localparam BATCH = 25;
@@ -21,6 +22,7 @@ module bigmul_unit_csa (
 
     // accumulator 192-bit: acc2:acc1:acc0 (high->low)
     reg [63:0] acc0, acc1, acc2;
+
 
     // diagonal computation control
     integer s_diag;
@@ -170,17 +172,17 @@ module bigmul_unit_csa (
                     acc_shr_64();
 
                     // check final diagonal condition
-                    if (s_diag == 126) begin
-                        resultCache[127] <= acc0;
+                    if (s_diag == operand_size*2) begin
+                        resultCache[2*operand_size + 1] <= acc0;
                         busy <= 0;
                         compute_done <= 1;
                     end else begin
                         s_diag <= s_diag + 1;
                         // computing i_min/i_max for next diag
-                        if ((s_diag + 1) > 63) i_min <= (s_diag + 1) - 63; else i_min <= 0;
-                        if ((s_diag + 1) < 63) i_max <= s_diag + 1; else i_max <= 63;
+                        if ((s_diag + 1) > operand_size-1) i_min <= (s_diag + 1) - (operand_size-1); else i_min <= 0;
+                        if ((s_diag + 1) < operand_size-1) i_max <= s_diag + 1; else i_max <= (operand_size-1);
                         // set k_iter to i_min for next diagonal
-                        k_iter <= ((s_diag + 1) > 63) ? ((s_diag + 1) - 63) : 0;
+                        k_iter <= ((s_diag + 1) > (operand_size-1)) ? ((s_diag + 1) - (operand_size-1)) : 0;
                     end
                 end
             end
