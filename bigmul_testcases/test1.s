@@ -2,12 +2,12 @@
 
 # 4096-bit A:
 A:
-    dword 0x7aef13c7b4d26521
+    udword 0xffffffffffffffff
     zero 504
 
 # 4096-bit B:
 B:
-    dword 0x795da48769e024b2
+    udword 0xffffffffffffffff
     zero 504
 
 # 8192-bit result buffer: 128 dwords = 1024 bytes
@@ -26,7 +26,8 @@ main:
 
     # perform 4096-bit x 4096-bit multiplication,
     # writing 8192-bit result to RES
-    bigmul x0, 0(x5)
+    li x8, 1
+    bigmul x8, 0(x5)
 
     # exit
     li a7, 93         # ecall exit
