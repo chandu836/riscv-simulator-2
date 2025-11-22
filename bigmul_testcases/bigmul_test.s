@@ -147,11 +147,12 @@ main:
     la x5, RES        # pointer to RES
 
     # load big integers into your bigmul unit
+    li x8,32
     ldbm x0, x3, x4   # your custom instruction
 
     # perform 4096-bit x 4096-bit multiplication,
     # writing 8192-bit result to RES
-    bigmul x0, 0(x5)  # your custom instruction
+    bigmul x8, 0(x5)  # your custom instruction
 
     # exit
     li a7, 93         # ecall exit

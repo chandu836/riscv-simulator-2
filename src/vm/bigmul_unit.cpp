@@ -19,6 +19,7 @@ namespace bigmul_unit {
     uint64_t cacheA[64] = {0};
     uint64_t cacheB[64] = {0};
     uint64_t resultCache[128] = {0};
+    uint64_t size_of_operand = 64; // in Dwords (default 512 bytes = 64 doublewords)
 
     static int s_diag;          // current diagonal 0..126
     static int i_min, i_max;    // bounds for s_diag
@@ -26,14 +27,14 @@ namespace bigmul_unit {
     static bool gen_done_this_diag;
 
     struct GenBatch {
-        int  count;             // 0..5
+        int  count;             
         int  i[25];
         int  j[25];
         bool valid;
     };
 
     struct LoadBatch {
-        int       count;        // 0..5
+        int       count;
         uint64_t  Ai[25];
         uint64_t  Bj[25];
         bool      valid;
@@ -247,9 +248,9 @@ namespace bigmul_unit {
         acc_shr_64();  // carry into next word
 
         // Last diagonal
-        if (s_diag == 126) {
-            // Final word (s=127) from remaining accumulator
-            resultCache[127] = acc_low64();
+        int LAST = (size_of_operand * 2) - 2;
+        if (s_diag == LAST) {
+            resultCache[LAST + 1] = acc_low64();
 
             // Mark compute phase done. VM will now enter writeback phase
             bigmul_prog = 0;
@@ -259,8 +260,9 @@ namespace bigmul_unit {
 
         // Move to next diagonal s_diag + 1
         ++s_diag;
-        i_min = (s_diag > 63) ? (s_diag - 63) : 0;
-        i_max = (s_diag < 63) ?  s_diag       : 63;
+        int LIM = size_of_operand - 1;
+        i_min = (s_diag > LIM) ? (s_diag - LIM) : 0;
+        i_max = (s_diag < LIM) ?  s_diag        : LIM;
         k_iter = i_min;
 
         // We KEEP acc0/1/2 (already shifted) as carry for next diagonal.

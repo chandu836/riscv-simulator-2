@@ -18,6 +18,7 @@ namespace bigmul_unit {
     extern uint64_t cacheA[64];
     extern uint64_t cacheB[64];
     extern uint64_t resultCache[128];
+    extern uint64_t size_of_operand;
 
     void reset();
     [[nodiscard]] bool GetBigmulDone();

@@ -86,6 +86,10 @@ void RVSSVM::Decode() {
     
     //std::cout << "[BIGMUL START] Condition met - starting BIGMUL" << std::endl;
     uint8_t rs1 = (current_instruction_ >> 15) & 0b1111111;
+    uint8_t rs2 = (current_instruction_ >> 20) & 0b1111111;
+    if(registers_.ReadGpr(rs2) != 0 && registers_.ReadGpr(rs2) < 512){
+      bigmul_unit::size_of_operand = registers_.ReadGpr(rs2);
+    }
     bigmul_unit::base_addr_res = registers_.ReadGpr(rs1);
     bigmul_unit::bigmul_prog = 0;
     bigmul_unit::bigmul_done_ = false;
@@ -594,9 +598,10 @@ void RVSSVM::WriteMemory() {
 
   //custom
     if (control_unit_.GetBigmulStart() && !bigmul_unit::GetBigmulDone() && !bigmul_unit::GetWriteDone()) {
-    if (bigmul_unit::write_offset < 128) {
+      uint64_t size = bigmul_unit::size_of_operand * 2;
+    if (bigmul_unit::write_offset < size) {
         // Write 8 double-words per cycle
-        for (int k = 0; k < 8 && (bigmul_unit::write_offset + k) < 128; ++k) {
+        for (int k = 0; k < 8 && (bigmul_unit::write_offset + k) < size; ++k) {
             uint64_t index = bigmul_unit::write_offset + k;
             uint64_t addr  = bigmul_unit::base_addr_res + index * 8ULL;
             uint64_t word  = bigmul_unit::resultCache[index];
@@ -629,10 +634,10 @@ void RVSSVM::WriteMemory() {
     }
 
     // check if done
-    if (bigmul_unit::write_offset >= 128) {
+    if (bigmul_unit::write_offset >= size) {
         bigmul_unit::write_done = true;
         bigmul_unit::bigmul_done_  = true;
-        for (int i = 0; i < 128; i++) {
+        for (int i = 0; i < size; i++) {
         std::cout << "RES[" << i << "] = 0x"
                   << std::hex << bigmul_unit::resultCache[i]
                   << std::dec << "\n";
