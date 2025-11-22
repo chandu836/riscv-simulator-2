@@ -1,60 +1,85 @@
 // tb_bigmul_unit_csa.v
 `timescale 1ns/1ps
+module tb_bigmul_unit_csa;
 
-module tb_bigmul_unit_csa();
-
-    reg clk, rst_n, start;
-    wire busy, done;
-    wire [63:0] cycles_out;
-
-    bigmul_unit_csa #(.NUM_LIMBS(64), .PARALLEL(25)) uut(
-        .clk(clk),
-        .rst_n(rst_n),
-        .start(start),
-        .busy(busy),
-        .done(done),
-        .cycles_out(cycles_out)
-    );
+    reg clk;
+    reg rstn;
+    reg start;
+    wire busy;
+    wire compute_done;
 
     integer i;
+    integer cycle_count;
+    integer MAX_CYCLES;
 
-    // clock: 10ns period
+    // Instantiate DUT
+    bigmul_unit_csa dut (
+        .clk(clk),
+        .rstn(rstn),
+        .start(start),
+        .busy(busy),
+        .compute_done(compute_done)
+    );
+
+    // clock
     initial begin
         clk = 0;
         forever #5 clk = ~clk;
     end
 
     initial begin
-        rst_n = 0; start = 0;
-        #20 rst_n = 1;
+        MAX_CYCLES = 100000;
+    end
 
-        // Clear operands
-        for (i = 0; i < 64; i = i + 1) begin
-            uut.A[i] = 64'd0;
-            uut.B[i] = 64'd0;
-        end
-
-        // Simple test: A = large number (limb0 = all 1s, limb1 = 1)
-        // B = small (16)
-        for (i = 0; i<64; i = i + 1) begin
-            uut.A[i] = 64'h7fffffffffffffff;
-            uut.B[i] = 64'h7fffffffffffffff;
-        end
-
+    // stimulus
+    initial begin
+        // reset
+        rstn = 0;
+        start = 0;
+        cycle_count = 0;
         #20;
-        $display("TB: asserting start at time %0t", $time);
-        start = 1;
-        #10 start = 0;
+        rstn = 1;
+        #20;
 
-        wait(done);
-
-        #10;
-        $display("TB: BIGMUL done. cycles_out = %0d", cycles_out);
-        $display("TB: result limbs R[0..15]:");
-        for (i = 0; i < 16; i = i + 1) begin
-            $display("R[%0d] = 0x%016x", i, uut.R[i]);
+        // Initializing caches with simple test data
+        for (i = 0; i < 64; i = i + 1) begin
+            dut.write_cacheA(i, 64'h7FFFFFFFFFFFFFFF);           // A[i] = (i+1)
+            dut.write_cacheB(i, 64'h7FFFFFFFFFFFFFFF);     // B[i] = 2*(i+1)
         end
 
+        $display("cacheA[0..7] and cacheB[0..7] (zero padded):");
+        for (i = 0; i < 8; i = i + 1) begin
+            $display("A[%0d]=%016h  B[%0d]=%016h",
+                     i, dut.cacheA[i], i, dut.cacheB[i]);
+        end
+
+        // pulse start
+        #10;
+        start = 1;
+        #10;
+        start = 0;
+
+        // Count cycles until done, with watchdog
+        cycle_count = 0;
+        while (compute_done == 0) begin
+            @(posedge clk);
+            cycle_count = cycle_count + 1;
+            if (cycle_count > MAX_CYCLES) begin
+                $display("ERROR: Timeout after %0d cycles. Aborting simulation.", cycle_count);
+                $finish;
+            end
+        end
+
+        $display("--------------------------------------------------");
+        $display(" BIGMUL FINISHED in %0d cycles", cycle_count);
+        $display("--------------------------------------------------");
+
+        $display("Printing first 16 result words (hex, zero-padded):");
+        for (i = 0; i < 128; i = i + 1) begin
+            $display("res[%0d] = %016h", i, dut.read_result(i));
+        end
+
+        $display("Simulation finished.");
         $finish;
     end
 
