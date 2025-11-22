@@ -158,8 +158,10 @@ Token Lexer::number() {
   std::regex octal_regex("^-?0[oO][0-7]+$");
   std::regex decimal_regex("^-?[0-9]+$");
   std::regex float_regex("^-?[0-9]*\\.[0-9]+([eE][-+]?[0-9]+)?$|^-?[0-9]+[eE][-+]?[0-9]+$");
-
-  if (std::regex_match(value, hex_regex)) {
+  std::regex uhex_regex("^0[xX][0-9a-fA-F]+$");
+  if (std::regex_match(value, uhex_regex)) {
+    return {TokenType::NUM, std::to_string(std::stoull(value, nullptr, 16)), line_number_, start_column};
+  }else if (std::regex_match(value, hex_regex)) {
     bool is_negative = value[0]=='-';
     value = (is_negative ? "-" : "") + value.substr(is_negative ? 3 : 2);
     return {TokenType::NUM, std::to_string(std::stoll(value, nullptr, 16)), line_number_, start_column};

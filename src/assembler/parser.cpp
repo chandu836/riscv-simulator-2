@@ -89,17 +89,19 @@ void Parser::parseDataDirective() {
         align(1);
       } else if (peekToken(1).value=="zero") {
         align(1);
+      } else if (peekToken(1).value=="udword") {    //custom
+        align(8);
       } else {
         errors_.count++;
         recordError(
           ParseError(
             currentToken().line_number, 
-            "Invalid directive: Expected .dword, .word, .halfword, .byte, .float, .double, .string, .zero"
+            "Invalid directive: Expected .dword, .word, .halfword, .byte, .float, .double, .string, .zero, .udword"   //custom
           )
         );
         errors_.all_errors.emplace_back(
           errors::SyntaxError(
-            "Invalid directive", "Expected .dword, .word, .halfword, .byte, .float, .double, .string, .zero",
+            "Invalid directive", "Expected .dword, .word, .halfword, .byte, .float, .double, .string, .zero, .udword",    //custom
             filename_, currentToken().line_number,
             currentToken().column_number,
             GetLineFromFile(filename_, currentToken().line_number)
@@ -118,7 +120,7 @@ void Parser::parseDataDirective() {
               || currentToken().type==TokenType::COMMA)) {
         if (currentToken().type==TokenType::NUM) {
           align(8);
-          data_buffer_.emplace_back(static_cast<uint64_t>(std::stoull(currentToken().value)));
+          data_buffer_.emplace_back(static_cast<uint64_t>(std::stoll(currentToken().value)));
           data_index_ += 8;
         }
         nextToken();
@@ -130,7 +132,7 @@ void Parser::parseDataDirective() {
               || currentToken().type==TokenType::COMMA)) {
         if (currentToken().type==TokenType::NUM) {
           align(4);
-          data_buffer_.emplace_back(static_cast<uint32_t>(std::stoull(currentToken().value)));
+          data_buffer_.emplace_back(static_cast<uint32_t>(std::stoll(currentToken().value)));
           data_index_ += 4;
         }
         nextToken();
@@ -143,7 +145,7 @@ void Parser::parseDataDirective() {
               || currentToken().type==TokenType::COMMA)) {
         if (currentToken().type==TokenType::NUM) {
           align(2);
-          data_buffer_.emplace_back(static_cast<uint16_t>(std::stoull(currentToken().value)));
+          data_buffer_.emplace_back(static_cast<uint16_t>(std::stoll(currentToken().value)));
           data_index_ += 2;
         }
         nextToken();
@@ -155,7 +157,7 @@ void Parser::parseDataDirective() {
               || currentToken().type==TokenType::COMMA)) {
         if (currentToken().type==TokenType::NUM) {
           align(1);
-          data_buffer_.emplace_back(static_cast<uint8_t>(std::stoull(currentToken().value)));
+          data_buffer_.emplace_back(static_cast<uint8_t>(std::stoll(currentToken().value)));
           data_index_ += 1;
         }
         nextToken();
@@ -190,7 +192,7 @@ void Parser::parseDataDirective() {
           && (currentToken().type==TokenType::NUM
               || currentToken().type==TokenType::COMMA)) {
         if (currentToken().type==TokenType::NUM) {
-          unsigned long long num = std::stoull(currentToken().value);
+          unsigned long long num = std::stoll(currentToken().value);
           if (num > 0) {
             align(1);
             for (unsigned long long i = 0; i < num; ++i) {
@@ -232,17 +234,29 @@ void Parser::parseDataDirective() {
         }
         nextToken();
       }
+    } else if (currentToken().value=="udword") {    //custom
+      nextToken();
+      while (currentToken().type!=TokenType::EOF_
+          && (currentToken().type==TokenType::NUM
+              || currentToken().type==TokenType::COMMA)) {
+        if (currentToken().type==TokenType::NUM) {
+          align(8);
+          data_buffer_.emplace_back(static_cast<uint64_t>(std::stoull(currentToken().value)));
+          data_index_ += 8;
+        }
+        nextToken();
+      }
     } else {
       errors_.count++;
       recordError(
         ParseError(
           currentToken().line_number,
-          "Invalid directive: Expected .dword, .word, .halfword, .byte, .string, .float, .double, .zero"
+          "Invalid directive: Expected .dword, .word, .halfword, .byte, .string, .float, .double, .zero .udword" //custom
         )
       );
       errors_.all_errors.emplace_back(
         errors::SyntaxError(
-          "Invalid directive", "Expected .dword, .word, .halfword, .byte, .string, .float, .double, .zero",
+          "Invalid directive", "Expected .dword, .word, .halfword, .byte, .string, .float, .double, .zero, .udword", //custom
           filename_, currentToken().line_number,
           currentToken().column_number,
           GetLineFromFile(filename_, currentToken().line_number)
@@ -473,7 +487,7 @@ void Parser::parseBSSDirective() {
     //     nextToken();
     //     if (currentToken().type==TokenType::NUM) {
     //       symbol_table_[currentToken().value] = {data_index_, currentToken().line_number, true};
-    //       data_index_ += std::stoull(currentToken().value);
+    //       data_index_ += std::stoll(currentToken().value);
     //       nextToken();
     //     } else {
     //       errors_.count++;
