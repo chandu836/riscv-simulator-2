@@ -63,6 +63,13 @@ namespace bigmul_unit {
 
     static int pending_depth_for_pMUL;
 
+    struct Acc {
+        uint64_t a0, a1, a2;
+    };
+
+    Acc accum[4];
+    static bool accum_valid[4];
+
     static inline GenBatch  make_empty_gen()  { GenBatch b{}; b.count=0; b.valid=false; return b; }
     static inline LoadBatch make_empty_load() { LoadBatch b{}; b.count=0; b.valid=false; return b; }
     static inline MulBatch  make_empty_mul()  { return MulBatch{0,0,0,false}; }
@@ -145,6 +152,11 @@ namespace bigmul_unit {
 
         pending_depth_for_pMUL = 0;
         acc_clear();
+
+        for (int i = 0; i < 4; ++i) {
+            accum[i].a0 = accum[i].a1 = accum[i].a2 = 0;
+            accum_valid[i] = false;
+        }
     }
 
     void start_bigmul(){
@@ -163,6 +175,10 @@ namespace bigmul_unit {
         dq_len = 0;
         // Carry for s=0 is 0
         acc_clear();
+        for (int i = 0; i < 4; ++i) {
+            accum[i].a0 = accum[i].a1 = accum[i].a2 = 0;
+            accum_valid[i] = false;
+        }
 
         // bigmul running
         // ldbm_offset = 0;
@@ -269,6 +285,147 @@ namespace bigmul_unit {
         // No need to clear acc here.
     }
     }
+
+    // GEN + LOAD + MUL in one stage,
+// CSA in multiple stages using dq + csa_depth_for_count().
+void csa_only_pipeline() {
+       if (bigmul_done_) return;
+
+        // First active cycle
+        if (bigmul_prog == 0) {
+            start_bigmul();
+        }
+
+        // ------------------------------------------
+        // 1) Take a snapshot of pipeline state (old)
+        // ------------------------------------------
+        Acc  old_accum[4];
+        bool old_valid[4];
+        for (int i = 0; i < 4; ++i) {
+            old_accum[i] = accum[i];
+            old_valid[i] = accum_valid[i];
+        }
+
+        // ------------------------------------------
+        // 2) RETIRE stage 3 from previous cycle
+        // ------------------------------------------
+        if (old_valid[3]) {
+            acc_add_u192(old_accum[3].a0, old_accum[3].a1, old_accum[3].a2);
+        }
+
+        // ------------------------------------------
+        // 3) SHIFT pipeline down: stage s-1 -> s
+        // ------------------------------------------
+        for (int s = 3; s >= 1; --s) {
+            if (old_valid[s-1]) {
+                accum[s]       = old_accum[s-1];
+                accum_valid[s] = true;
+            } else {
+                accum_valid[s] = false;
+                accum[s].a0 = accum[s].a1 = accum[s].a2 = 0;
+            }
+        }
+        // Stage 0 will be filled with new batch (if any) this cycle
+        accum_valid[0] = false;
+        accum[0].a0 = accum[0].a1 = accum[0].a2 = 0;
+
+        // ------------------------------------------
+        // 4) FRONT-END: GEN + LOAD + MUL (one stage)
+        // ------------------------------------------
+        const int BATCH = 25; // at most 25 partial products per cycle
+        int processed = 0;
+
+        uint64_t b0 = 0;  // low  64 bits
+        uint64_t b1 = 0;  // mid  64 bits
+        uint64_t b2 = 0;  // high 64 bits
+
+        while (processed < BATCH && k_iter <= i_max) {
+            int ii = k_iter;
+            int jj = s_diag - ii;
+            ++k_iter;
+            ++processed;
+
+            uint64_t Ai = cacheA[ii];
+            uint64_t Bj = cacheB[jj];
+
+            __uint128_t p = ( (__uint128_t)Ai * (__uint128_t)Bj );
+            uint64_t lo = (uint64_t)p;
+            uint64_t hi = (uint64_t)(p >> 64);
+
+            // (b2 b1 b0) += (0 hi lo)
+            unsigned __int128 t0 = (unsigned __int128)b0 + lo;
+            b0 = (uint64_t)t0;
+            uint64_t c0 = (uint64_t)(t0 >> 64);
+
+            unsigned __int128 t1 = (unsigned __int128)b1 + hi + c0;
+            b1 = (uint64_t)t1;
+            uint64_t c1 = (uint64_t)(t1 >> 64);
+
+            b2 += c1;
+        }
+
+        // If we exhausted all (i,j) for this diagonal, mark GEN done
+        if (k_iter > i_max) {
+            gen_done_this_diag = true;
+        }
+
+        // ------------------------------------------
+        // 5) Insert new batch sum into stage 0
+        // ------------------------------------------
+        if (processed > 0) {
+            accum[0].a0   = b0;
+            accum[0].a1   = b1;
+            accum[0].a2   = b2;
+            accum_valid[0] = true;
+        }
+
+        // ------------------------------------------
+        // 6) Check if diagonal is complete:
+        //    - all (i,j) generated, AND
+        //    - CSA pipeline empty
+        // ------------------------------------------
+        bool pipe_empty = true;
+        for (int i = 0; i < 4; ++i) {
+            if (accum_valid[i]) {
+                pipe_empty = false;
+                break;
+            }
+        }
+
+        if (gen_done_this_diag && pipe_empty) {
+            // All contributions for this diagonal are inside acc0/1/2
+            resultCache[s_diag] = acc_low64();
+            acc_shr_64(); // carry to next word
+
+            int LIM  = (int)size_of_operand - 1;         // e.g., 63
+            int LAST = (int)(size_of_operand * 2) - 2;   // e.g., 126
+
+            if (s_diag == LAST) {
+                // Final extra word from remaining carry (s = LAST+1)
+                resultCache[LAST + 1] = acc_low64();
+
+                bigmul_prog = 0;
+                write_done  = false; // VM will do writeback
+                return;
+            }
+
+            // Advance to next diagonal
+            ++s_diag;
+            i_min = (s_diag > LIM) ? (s_diag - LIM) : 0;
+            i_max = (s_diag < LIM) ?  s_diag        : LIM;
+            k_iter = i_min;
+
+            // Reset per-diagonal state (carry already in acc0/1/2)
+            gen_done_this_diag = false;
+
+            // Clear pipeline for next diagonal
+            for (int i = 0; i < 4; ++i) {
+                accum[i].a0 = accum[i].a1 = accum[i].a2 = 0;
+                accum_valid[i] = false;
+            }
+        }
+}
+
 
 
     void staged3pipeline(){
