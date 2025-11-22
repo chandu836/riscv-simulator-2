@@ -99,7 +99,7 @@ namespace bigmul_unit {
         double lg = std::log2((double)count);
         int d = (int)std::ceil(lg) - 1;
         if (d < 0) d = 0;
-        if (d > 4) d = 4; // hard cap (we only keep a tiny queue)
+        if (d > 4) d = 4; // queue of max 5 items
         return d;
     }
 
@@ -110,8 +110,8 @@ namespace bigmul_unit {
     }
 
     static inline void dq_push(const MulBatch &mb, int remain) {
-        if (remain <= 0) return;        // should not queue zero-remaining
-        if (dq_len >= 5) return;        // protect against overflow (shouldn’t happen)
+        if (remain <= 0) return;        // should not queue zero remaining
+        if (dq_len >= 5) return;        // overflow shouldn’t happen
         dq[dq_len++] = DelayItem{mb, remain, true};
     }
 
@@ -147,7 +147,7 @@ namespace bigmul_unit {
     }
 
     void start_bigmul(){
-        // Initialize first diagonal
+        // Initialize first
         s_diag = 0;
         i_min  = 0;
         i_max  = 0;        // for s=0, only (0,0)
@@ -160,14 +160,14 @@ namespace bigmul_unit {
         pMUL  = make_empty_mul();
         for (int i=0;i<5;++i) dq[i] = make_empty_item();
         dq_len = 0;
-        // Carry-in for s=0 is 0
+        // Carry for s=0 is 0
         acc_clear();
 
-        // Mark bigmul running
+        // bigmul running
         // ldbm_offset = 0;
         // write_offset = 0;
         bigmul_done_ = false;
-        bigmul_prog  = 1; // just a “running” marker you already had
+        bigmul_prog  = 1; // just a running marker
         write_done   = true;
     }
 
@@ -187,111 +187,21 @@ namespace bigmul_unit {
 
     // }
 
-    void bigmul_pipeline_streaming() {
-    if (bigmul_done_) return;
-
-    // start if needed
-    if (bigmul_prog == 0) start_bigmul();
-
-    // STEP 1 — retire previous MUL into accumulator
-    if (pMUL.valid)
-        acc_add_u192(pMUL.lo, pMUL.hi, pMUL.hi2);
-
-    // STEP 2 — LOAD->MUL
-    MulBatch nextMUL = make_empty_mul();
-    if (pLOAD.valid) {
-        uint64_t b0 = 0, b1 = 0, b2 = 0;
-        for (int t=0; t<pLOAD.count; ++t) {
-            __uint128_t p = ( (__uint128_t)pLOAD.Ai[t] * (__uint128_t)pLOAD.Bj[t] );
-            uint64_t lo = (uint64_t)p;
-            uint64_t hi = (uint64_t)(p >> 64);
-
-            unsigned __int128 x = (unsigned __int128)b0 + lo;
-            b0 = (uint64_t)x; 
-            uint64_t c0 = (uint64_t)(x >> 64);
-
-            unsigned __int128 y = (unsigned __int128)b1 + hi + c0;
-            b1 = (uint64_t)y;
-            uint64_t c1 = (uint64_t)(y >> 64);
-
-            b2 += c1;
-        }
-        nextMUL = {b0,b1,b2,true};
-    }
-
-    // STEP 3 — GEN->LOAD
-    LoadBatch nextLOAD = make_empty_load();
-    if (pGEN.valid) {
-        nextLOAD.count = pGEN.count;
-        for (int t = 0; t < pGEN.count; ++t) {
-            nextLOAD.Ai[t] = cacheA[pGEN.i[t]];
-            nextLOAD.Bj[t] = cacheB[pGEN.j[t]];
-        }
-        nextLOAD.valid = true;
-    }
-
-    // STEP 4 — NEW GEN (streaming)
-    GenBatch nextGEN = make_empty_gen();
-    if (s_diag < 128) {
-        if (k_iter <= i_max) {
-            int produced = 0;
-            for (; produced < 25 && k_iter <= i_max; ++k_iter, ++produced) {
-                nextGEN.i[produced] = k_iter;
-                nextGEN.j[produced] = s_diag - k_iter;
-            }
-            nextGEN.count = produced;
-            nextGEN.valid = (produced > 0);
-        } else {
-            // finish diagonal result
-            resultCache[s_diag] = acc_low64();
-            acc_shr_64();
-
-            // next diag
-            s_diag++;
-            if (s_diag == 128) {
-                bigmul_prog = 0;
-                bigmul_done_ = true;
-                write_done = false;
-                return;
-            }
-
-            i_min = (s_diag > 63) ? s_diag - 63 : 0;
-            i_max = (s_diag < 63) ? s_diag : 63;
-            k_iter = i_min;
-
-            // GEN next diagonal immediately
-            int produced = 0;
-            for (; produced < 25 && k_iter <= i_max; ++k_iter, ++produced) {
-                nextGEN.i[produced] = k_iter;
-                nextGEN.j[produced] = s_diag - k_iter;
-            }
-            nextGEN.count = produced;
-            nextGEN.valid = (produced > 0);
-        }
-    }
-
-    // advance pipeline
-    pMUL  = nextMUL;
-    pLOAD = nextLOAD;
-    pGEN  = nextGEN;
-}
-
-
     void singlecycle(){
         // If nothing to do, return
     if (bigmul_done_) return;
 
-    // First call after BIGMUL start
+    // First call
     if (bigmul_prog == 0) {
         start_bigmul();
     }
 
-    // ---- Single-cycle GEN + LOAD + MUL + CSA for this cycle ----
+    //     Single-cycle GEN + LOAD + MUL + CSA for this cycle 
     // We process up to 25 (i,j) pairs on the current diagonal s_diag
     const int BATCH = 25;
     int processed = 0;
 
-    // Local 192-bit batch sum (like your old pMUL + CSA tree)
+    // Local 192-bit batch sum
     uint64_t b0 = 0;  // low 64 bits
     uint64_t b1 = 0;  // middle 64 bits
     uint64_t b2 = 0;  // high 64 bits
@@ -307,12 +217,12 @@ namespace bigmul_unit {
         uint64_t Ai = cacheA[ii];
         uint64_t Bj = cacheB[jj];
 
-        // MUL: 64x64 -> 128
+        // MUL: 64x64 => 128
         __uint128_t p = ( (__uint128_t)Ai * (__uint128_t)Bj );
         uint64_t lo = (uint64_t)p;
         uint64_t hi = (uint64_t)(p >> 64);
 
-        // Local 192-bit sum b2:b1:b0 += (hi:lo)
+        // Local 192-bit sum
         unsigned __int128 t0 = (unsigned __int128)b0 + lo;
         b0 = (uint64_t)t0;
         uint64_t c0 = (uint64_t)(t0 >> 64);
@@ -329,19 +239,19 @@ namespace bigmul_unit {
         acc_add_u192(b0, b1, b2);
     }
 
-    // ---- Check if we finished this diagonal ----
+    //  Check if we finished this diagonal 
     if (k_iter > i_max) {
         // All partial products for diagonal s_diag are accumulated in acc0/1/2.
         // Emit the low 64 bits to resultCache[s_diag], then shift accumulator.
         resultCache[s_diag] = acc_low64();
         acc_shr_64();  // carry into next word
 
-        // Last diagonal?
+        // Last diagonal
         if (s_diag == 126) {
             // Final word (s=127) from remaining accumulator
             resultCache[127] = acc_low64();
 
-            // Mark compute phase done; VM will now enter writeback phase
+            // Mark compute phase done. VM will now enter writeback phase
             bigmul_prog = 0;
             write_done  = false;
             return;
@@ -361,23 +271,19 @@ namespace bigmul_unit {
 
     void staged3pipeline(){
         //3-4 STAGED PIPELINE
-if (bigmul_done_) return;
+    if (bigmul_done_) return;
 
-    // Optional: auto-start if you rely on bigmul_prog == 0 as "not started yet"
     if (bigmul_prog == 0) {
         start_bigmul();
     }
 
-    // -------------------------
-    // 1) RETIRE previous MUL batch into accumulator
-    // -------------------------
+    
+    // 1) RETIRE previous MUL batch into accumulator-
     if (pMUL.valid) {
         acc_add_u192(pMUL.lo, pMUL.hi, pMUL.hi2);
     }
 
-    // -------------------------
     // 2) Build next MUL from previous LOAD
-    // -------------------------
     MulBatch nextMUL = make_empty_mul();
     if (pLOAD.valid && pLOAD.count > 0) {
         uint64_t b0 = 0, b1 = 0, b2 = 0;   // 192-bit local sum
@@ -404,9 +310,7 @@ if (bigmul_done_) return;
         nextMUL.valid = true;
     }
 
-    // -------------------------
     // 3) Build next LOAD from previous GEN
-    // -------------------------
     LoadBatch nextLOAD = make_empty_load();
     if (pGEN.valid && pGEN.count > 0) {
         nextLOAD.count = pGEN.count;
@@ -417,9 +321,7 @@ if (bigmul_done_) return;
         nextLOAD.valid = true;
     }
 
-    // -------------------------
     // 4) Build next GEN for current diagonal
-    // -------------------------
     const int BATCH = 25; // or 16, if you want 16 multipliers
     GenBatch nextGEN = make_empty_gen();
 
@@ -439,17 +341,13 @@ if (bigmul_done_) return;
         }
     }
 
-    // -------------------------
-    // 5) Commit pipeline registers for next cycle
-    // -------------------------
+    // 5) pipeline registers for next cycle
     pMUL  = nextMUL;
     pLOAD = nextLOAD;
     pGEN  = nextGEN;
 
-    // -------------------------
+
     // 6) Check if diagonal is fully processed
-    //    (no more GEN, no more LOAD/MUL in flight)
-    // -------------------------
     bool pipe_empty = !pGEN.valid && !pLOAD.valid && !pMUL.valid;
 
     if (gen_done_this_diag && pipe_empty) {
@@ -457,7 +355,7 @@ if (bigmul_done_) return;
         resultCache[s_diag] = acc_low64();
         acc_shr_64();   // carry into next word
 
-        // If this was the last diagonal of partial products
+        //last diagonal of partial products
         if (s_diag == 126) {
             // Final word from remaining accumulator (s = 127)
             resultCache[127] = acc_low64();
@@ -474,7 +372,6 @@ if (bigmul_done_) return;
 
         // Reset diagonal control
         gen_done_this_diag = false;
-        // (pipeline will refill automatically with new GEN/LOAD/MUL)
     }
 
     }
@@ -499,10 +396,8 @@ if (bigmul_done_) return;
 
         if (pMUL.valid) {
             if (pending_depth_for_pMUL <= 0) {
-                // No CSA latency needed: retire immediately
                 acc_add_u192(pMUL.lo, pMUL.hi, pMUL.hi2);
             } else {
-                // Queue with countdown = depth
                 dq_push(pMUL, pending_depth_for_pMUL);
             }
         }
@@ -513,7 +408,6 @@ if (bigmul_done_) return;
             uint64_t b0=0, b1=0, b2=0; // 192-bit local sum
             for (int t=0; t<pLOAD.count; ++t) {
                 // for(int l=0; l<pLOAD.count;++l){
-                // NOTE: pairwise product only (NO nested loop!)
                 __uint128_t p = ( (__uint128_t)pLOAD.Ai[t] * (__uint128_t)pLOAD.Bj[t] );
                 uint64_t lo = (uint64_t)p;
                 uint64_t hi = (uint64_t)(p >> 64);
@@ -602,9 +496,7 @@ if (bigmul_done_) return;
         return;
     }
 
-    // ----------------------------------------------
     // Every cycle → compute ONE diagonal result word
-    // ----------------------------------------------
 
     if (s_diag < 128) {
 
@@ -632,7 +524,7 @@ if (bigmul_done_) return;
 
         // All 128 diagonals complete?
         if (s_diag == 128) {
-            bigmul_done_ = true;
+            bigmul_done_ = false;
             write_done = false;     // your VM will write resultCache to memory
             bigmul_prog = 0;
         }
@@ -642,8 +534,7 @@ if (bigmul_done_) return;
     }
 
     void executeBigmul(){
-        bigmul_pipeline_streaming();
-
+        singlecycle();
     }
 
     // std::size_t getResultSize(){
@@ -695,7 +586,6 @@ void restore(const BigmulState &s) {
     for (int i=0;i<128;i++){
         resultCache[i] = s.resultCache[i];
     }
-    // We DO NOT restore pipeline.
     // Step() always finishes a whole LDBM/BIGMUL and reset() clears caches.
 }
 }

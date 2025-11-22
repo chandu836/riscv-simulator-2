@@ -49,7 +49,7 @@ void RVSSVM::Decode() {
 
   // Control signals for custom instructions
   uint8_t opcode = current_instruction_ & 0b1111111;
-  std::cout << "[DECODE] opcode=" << std::hex << (int)opcode  << std::dec << std::endl;
+  // std::cout << "[DECODE] opcode=" << std::hex << (int)opcode  << std::dec << std::endl;
   // std::cout << "[DEBUG START FLAGS] "
   //         << "LDBM_start=" << control_unit_.GetLdbmStart()
   //         << " LDBM_done="  << bigmul_unit::GetLdbmDone()
@@ -65,21 +65,21 @@ void RVSSVM::Decode() {
   // Control signals for custom instructions
   if ((opcode == get_instr_encoding(Instruction::kldbm).opcode) && control_unit_.GetLdbmStart() && bigmul_unit::GetLdbmDone()) {
     
-    //std::cout << "[DECODE] opcode=" << std::hex << get_instr_encoding(Instruction::kldbm).opcode  << std::dec << std::endl;
-    //std::cout << "[LDBM START] Condition met - starting LDBM" << std::endl;
+    // std::cout << "[DECODE] opcode=" << std::hex << get_instr_encoding(Instruction::kldbm).opcode  << std::dec << std::endl;
+    // std::cout << "[LDBM START] Condition met - starting LDBM" << std::endl;
     uint8_t rs1 = (current_instruction_ >> 15) & 0b1111111;
     uint8_t rs2 = (current_instruction_ >> 20) & 0b1111111;
 
-    // std::cout << "[LDBM DEBUG] rs1=" << std::dec << (int)rs1
-    //         << " rs2=" << (int)rs2 << std::hex << std::dec << std::endl;
+    //  std::cout << "[LDBM DEBUG] rs1=" << std::dec << (int)rs1
+    //          << " rs2=" << (int)rs2 << std::hex << std::dec << std::endl;
 
     bigmul_unit::base_addr_A = registers_.ReadGpr(rs1);
     bigmul_unit::base_addr_B = registers_.ReadGpr(rs2);
     bigmul_unit::ldbm_offset = 0;
     bigmul_unit::ldbm_done_ = false;
     
-    // std::cout << "[LDBM] Starting load from A=" << std::hex << bigmul_unit::base_addr_A 
-    //           << " B=" << bigmul_unit::base_addr_B << std::dec << std::endl;
+  // std::cout << "[LDBM] Starting load from A=" << std::hex << bigmul_unit::base_addr_A 
+  //             << " B=" << bigmul_unit::base_addr_B << std::dec << std::endl;
   }
   else if ((opcode == get_instr_encoding(Instruction::kbigmul).opcode) 
            && control_unit_.GetBigmulStart() && bigmul_unit::GetBigmulDone()) {
@@ -92,8 +92,8 @@ void RVSSVM::Decode() {
     bigmul_unit::write_offset = 0;
     bigmul_unit::write_done = true;
     
-  //   std::cout << "[BIGMUL] Starting multiplication, result to: " 
-  //             << std::hex << bigmul_unit::base_addr_res << std::dec << std::endl;
+    // std::cout << "[BIGMUL] Starting multiplication, result to: " 
+    //           << std::hex << bigmul_unit::base_addr_res << std::dec << std::endl;
   }
 }
 
@@ -107,10 +107,10 @@ void RVSSVM::Execute() {
     return;
   }
   //custom
-  if (opcode == get_instr_encoding(Instruction::kbigmul).opcode && control_unit_.GetBigmulStart()) {
-    bigmul_unit::executeBigmul();   // kicks off the process
-    return;
-  }
+  // if (opcode == get_instr_encoding(Instruction::kbigmul).opcode && control_unit_.GetBigmulStart()) {
+  //   bigmul_unit::executeBigmul();   // starts the process
+  //   return;
+  // }
   // else 
   if (instruction_set::isFInstruction(current_instruction_)) { // RV64 F
     ExecuteFloat();
@@ -520,18 +520,18 @@ void RVSSVM::WriteMemory() {
     // Check if done (64 for A + 64 for B = 128 total)
     if (bigmul_unit::ldbm_offset >= 128) {
       bigmul_unit::ldbm_done_ = true;
-      for (int i = 0; i < 64; i++) {
-        std::cout << "A[" << i << "] = 0x"
-                  << std::hex << bigmul_unit::cacheA[i]
-                  << std::dec << "\n";
-    }
+    //   for (int i = 0; i < 64; i++) {
+    //     std::cout << "A[" << i << "] = 0x"
+    //               << std::hex << bigmul_unit::cacheA[i]
+    //               << std::dec << "\n";
+    // }
 
-      for (int i = 0; i < 64; i++) {
-        std::cout << "B[" << i << "] = 0x"
-                  << std::hex << bigmul_unit::cacheB[i]
-                  << std::dec << "\n";
-      }
-      //std::cout << "[LDBM] Completed loading both operands" << std::endl;
+    //   for (int i = 0; i < 64; i++) {
+    //     std::cout << "B[" << i << "] = 0x"
+    //               << std::hex << bigmul_unit::cacheB[i]
+    //               << std::dec << "\n";
+    //   }
+    //   std::cout << "[LDBM] Completed loading both operands" << std::endl;
     }
     return;
     }
@@ -613,14 +613,14 @@ void RVSSVM::WriteMemory() {
             for (int b = 0; b < 8; ++b) {
                 new_bytes_vec.push_back(memory_controller_.ReadByte(addr + b));
             }
-//             if (bigmul_unit::write_offset == 0) {
-//     std::cout << "[DEBUG RESULT FIRST 8 QWORDS]\n";
-//     for (int i = 0; i < 8; i++) {
-//         std::cout << "RES[" << i << "] = 0x"
-//                   << std::hex << bigmul_unit::resultCache[i]
-//                   << std::dec << "\n";
-//     }
-// }
+            if (bigmul_unit::write_offset == 0) {
+    // std::cout << "[DEBUG RESULT FIRST 8 QWORDS]\n";
+    // for (int i = 0; i < 8; i++) {
+    //     std::cout << "RES[" << i << "] = 0x"
+    //               << std::hex << bigmul_unit::resultCache[i]
+    //               << std::dec << "\n";
+    // }
+}
 
         }
 
