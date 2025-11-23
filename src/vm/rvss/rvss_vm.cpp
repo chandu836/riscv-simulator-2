@@ -637,11 +637,17 @@ void RVSSVM::WriteMemory() {
     if (bigmul_unit::write_offset >= size) {
         bigmul_unit::write_done = true;
         bigmul_unit::bigmul_done_  = true;
-        for (int i = 0; i < size; i++) {
-        std::cout << "RES[" << i << "] = 0x"
-                  << std::hex << bigmul_unit::resultCache[i]
-                  << std::dec << "\n";
-    }
+        for (int i = 0; i < size; i += 4) {
+          for (int k = 0; k < 4 && (i + k) < size; k++) {
+              int idx = i + k;
+                std::cout << "RES[" << idx << "] = 0x"
+                          << std::hex << std::uppercase
+                          << std::setw(8) << std::setfill('0')
+                          << bigmul_unit::resultCache[idx]
+                          << std::dec << "   ";
+              }
+          std::cout << "\n";
+        }
     //     std::cout << "\n====== BIGMUL UNIT STATE ======\n";
 
     // std::cout << "[LDBM]\n";
