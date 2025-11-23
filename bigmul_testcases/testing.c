@@ -79,16 +79,16 @@ void multiply_bignum(bignum_t a, bignum_t b, uint64_t *result) {
 
 // Print big num MSW → LSW
 void print_bignum(const char *label, uint64_t *num, int size) {
-    printf("%s:\n0x", label);
-    int start = size - 1;
-    while (start > 0 && num[start] == 0)
-        start--;
+    // printf("%s:\n0x", label);
+    // int start = size - 1;
+    // while (start > 0 && num[start] == 0)
+    //     start--;
 
-    printf("%" PRIx64 "\n", num[start]);
-    for (int i = start - 1; i >= 0; i--)
-        printf("%016" PRIx64 "\n", num[i]);
+    // printf("%" PRIx64 "\n", num[start]);
+    // for (int i = start - 1; i >= 0; i--)
+    //     printf("%016" PRIx64 "\n", num[i]);
 
-    printf("\n");
+    // printf("\n");
 }
 
 int count_bits(uint64_t *num, int size) {
@@ -108,7 +108,7 @@ int main() {
 
     srand(time(NULL));
 
-    printf("=== 4096-bit Number Multiplication Tester ===\n\n");
+    printf("=== 4096-bit Number Multiplication Tester ===\n");
 
     generate_random_bignum(a);
     generate_random_bignum(b);
@@ -116,13 +116,13 @@ int main() {
     print_bignum("Number A", a, ARRAY_SIZE);
     print_bignum("Number B", b, ARRAY_SIZE);
 
-    printf("Computing A * B...\n\n");
+    printf("Computing A * B...\n");
     multiply_bignum(a, b, result);
 
     // ---- RAW DUMP: EXACTLY matches your simulator RES[] ----
-    printf("Raw result in limb order (LSW → MSW):\n");
-    for (int i = 0; i < ARRAY_SIZE * 2; i++) {
-        printf("result[%d] = 0x%016" PRIx64 "\n", i, result[i]);
+    printf("Result in limb order (LSW → MSW):\n");
+    for (int i = 0; i < ARRAY_SIZE * 2; i+=4) {
+        printf("result[%d] = 0x%016" PRIx64  "  result[%d] = 0x%016" PRIx64 "  result[%d] = 0x%016" PRIx64 "  result[%d] = 0x%016" PRIx64 "\n", i, result[i], i+1, result[i+1], i+2, result[i+2], i+3, result[i+3]);
     }
     printf("\n");
 

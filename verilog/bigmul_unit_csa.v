@@ -90,10 +90,6 @@
 //     reg [63:0] c1;
 //     reg [63:0] c0;
 //     reg [63:0] lo; reg [63:0] hi;
-//     integer processed;
-//     integer ii, jj;
-//     reg [63:0] b0; reg [63:0] b1; reg [63:0] b2;
-
 //     // Main sequential behavior: at each posedge if busy: do up to BATCH GEN+LOAD+MUL and update accumulator.
 //     always @(posedge clk or negedge rstn) begin
 //         if (!rstn) begin
@@ -121,12 +117,12 @@
 //                 // idle
 //             end else begin
 //                 // Process up to BATCH pairs for current diagonal
-//                 // integer processed;
-//                 // reg [63:0] b0; reg [63:0] b1; reg [63:0] b2;
+//                 integer processed;
+//                 reg [63:0] b0; reg [63:0] b1; reg [63:0] b2;
 //                 processed = 0;
 //                 b0 = 64'h0; b1 = 64'h0; b2 = 64'h0;
 //                 while ((processed < BATCH) && (k_iter <= i_max)) begin
-//                     // integer ii, jj;
+//                     integer ii, jj;
 //                     ii = k_iter;
 //                     jj = s_diag - ii;
 //                     // load
@@ -194,6 +190,7 @@
 //     end
 
 // endmodule
+
 
 `timescale 1ns/1ps
 module bigmul_unit_csa (
@@ -318,46 +315,53 @@ module bigmul_unit_csa (
                 // idle
             end else begin
                 // Process up to BATCH pairs for current diagonal
+                // integer processed;
+                // reg [63:0] b0; reg [63:0] b1; reg [63:0] b2;
                 processed = 0;
                 b0 = 64'h0; b1 = 64'h0; b2 = 64'h0;
+                while ((processed < BATCH) && (k_iter <= i_max)) begin
+                    // integer ii, jj;
+                    ii = k_iter;
+                    jj = s_diag - ii;
+                    // load
+                    
+                    Ai = cacheA[ii];
+                    Bj = cacheB[jj];
 
-                // Use a fixed-iteration for-loop (synthesizable). Inside it we only act when k_iter <= i_max.
-                for (t = 0; t < BATCH; t = t + 1) begin
-                    if (k_iter <= i_max) begin
-                        ii = k_iter;
-                        jj = s_diag - ii;
-                        // load
-                        Ai = cacheA[ii];
-                        Bj = cacheB[jj];
+                    // 64x64 -> 128
+                    
+                    prod = Ai * Bj;
+                    
+                    lo = prod[63:0];
+                    hi = prod[127:64];
 
-                        // 64x64 -> 128
-                        prod = Ai * Bj;
-                        lo = prod[63:0];
-                        hi = prod[127:64];
+                    // add to local 192-bit b2:b1:b0
+                    // b0 += lo
+                    
+                    t0 = ( {64'h0, b0} + {64'h0, lo} );
+                    b0 = t0[63:0];
+                    
+                    c0 = t0[127:64];
 
-                        // add to local 192-bit b2:b1:b0
-                        // b0 += lo
-                        t0 = ({64'h0, b0} + {64'h0, lo} );
-                        b0 = t0[63:0];
-                        c0 = t0[127:64];
+                    // b1 += hi + c0
+                    
+                    t1 = ( {64'h0, b1} + {64'h0, hi} + {127'h0, c0} );
+                    b1 = t1[63:0];
+                    
+                    c1 = t1[127:64];
 
-                        // b1 += hi + c0
-                        t1 = ({64'h0, b1} + {64'h0, hi} + {64'h0, c0} );
-                        b1 = t1[63:0];
-                        c1 = t1[127:64];
+                    b2 = b2 + c1;
 
-                        b2 = b2 + c1;
-
-                        // move to next diagonal element
-                        k_iter = k_iter + 1;
-                        processed = processed + 1;
-                        produced_total = produced_total + 1;
-                    end
+                    // move to next diagonal
+                    k_iter = k_iter + 1;
+                    processed = processed + 1;
+                    produced_total = produced_total + 1;
                 end
 
+                
                 if (processed > 0) begin
                     acc_add_u192(b0, b1, b2);
-                    retired_total <= retired_total + processed;
+                    retired_total = retired_total + processed;
                 end
 
                 // Check if current diagonal finished
@@ -366,11 +370,8 @@ module bigmul_unit_csa (
                     acc_shr_64();
 
                     // check final diagonal condition
-                    if (s_diag == operand_size*2) begin
-                        // note: original code wrote resultCache[2*operand_size + 1] <= acc0;
-                        // keep original intent but guard index range
-                        if ((2*operand_size + 1) < NDIAGS)
-                            resultCache[2*operand_size + 1] <= acc0;
+                    if (s_diag == operand_size*2 - 2) begin
+                        resultCache[2*operand_size-1] <= acc0;
                         busy <= 0;
                         compute_done <= 1;
                     end else begin
