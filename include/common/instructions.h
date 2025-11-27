@@ -50,6 +50,7 @@ enum Instruction {
   kand,
   //cond
   kcmov,
+  kcmovu,
 
   //custom instructions
   kldbm,
@@ -262,6 +263,7 @@ inline constexpr std::array<InstructionEncoding, static_cast<size_t>(Instruction
 
  //cond
   InstructionEncoding(Instruction::kcmov,        0b0110101, -1, 0b000, -1, -1, -1), // cmov
+  InstructionEncoding(Instruction::kcmovu,        0b0110101, -1, 0b001, -1, -1, -1), // cmovu
 
 //custom instructions
   InstructionEncoding(Instruction::kldbm,      0b0101010, -1, 0b000, -1, -1, 0b0000000), // kldbm

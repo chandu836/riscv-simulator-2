@@ -61,9 +61,11 @@ enum class AluOp {
     kAddC, ///< Custom addition operation.
 
     //cond
-    //kCmov,
+    //kCmov,kCmovu
     kCmovmin,
     kCmovmax,
+    kCmovumin,
+    kCmovumax,
 
     // Floating point operations
     kFmadd_s, ///< Floating point multiply-add single operation.
@@ -173,6 +175,8 @@ inline std::ostream& operator<<(std::ostream& os, const AluOp& op) {
         //cond
         case AluOp::kCmovmin: os << "kCmovmin"; break;
         case AluOp::kCmovmax: os << "kCmovmax"; break;
+        case AluOp::kCmovumin: os << "kCmovumin"; break;
+        case AluOp::kCmovumax: os << "kCmovumax"; break;
 
         case AluOp::kFmadd_s: os << "kFmadd_s"; break;
         case AluOp::kFmsub_s: os << "kFmsub_s"; break;

@@ -30,7 +30,7 @@ void RVSSControlUnit::SetControlSignals(uint32_t instruction) {
       break;
     }
     //cond
-    case 0b0110101: {// CMOV
+    case 0b0110101: {// CMOV & CMOVU
       reg_write_ = true;
       alu_op_ = true;
       break;
@@ -387,6 +387,22 @@ alu::AluOp RVSSControlUnit::GetAluSignal(uint32_t instruction, bool ALUOp) {
                 return alu::AluOp::kCmovmin;  // signed min
             } else if (raw_imm == 1) {
                 return alu::AluOp::kCmovmax;  // signed max
+            } else {
+                // Unknown selector: treat as no-ALU / trap to none (or return kNone)
+                return alu::AluOp::kNone;
+            }
+        }
+        break;
+        case 0b001: {// cmovu
+            // Decode 7-bit I-type immediate (bits 31:20) and sign-extend to int32_t:
+            uint32_t raw_imm = static_cast<uint32_t>((instruction >> 25) & 0x7F);
+            // sign-extend 7-bit:
+            // int32_t imm = (raw_imm & 0x40) ? static_cast<int32_t>(raw_imm | 0xFFFFFF80u) : static_cast<int32_t>(raw_imm);
+            // Interpret selector:
+            if (raw_imm == 0) {
+                return alu::AluOp::kCmovumin;  // signed min
+            } else if (raw_imm == 1) {
+                return alu::AluOp::kCmovumax;  // signed max
             } else {
                 // Unknown selector: treat as no-ALU / trap to none (or return kNone)
                 return alu::AluOp::kNone;

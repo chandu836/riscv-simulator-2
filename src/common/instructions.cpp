@@ -180,6 +180,7 @@ std::unordered_map<std::string, Instruction> instruction_string_map = {
     {"bigmul",Instruction::kbigmul},
     //cond
     {"cmov", Instruction::kcmov},
+    {"cmovu", Instruction::kcmovu},
     {"addC",Instruction::kaddC},
 
 };
@@ -231,7 +232,7 @@ static const std::unordered_set<std::string> valid_instructions = {
     //custom Instructions
     "ldbm","bigmul",
     //cond
-    "cmov",
+    "cmov","cmovu",
     "addC",
 
 };
@@ -264,7 +265,7 @@ static const std::unordered_set<std::string> SRTypeInstructions = {
 };
 //cond
 static const std::unordered_set<std::string> MtypeInstructions = {
-  "cmov",
+  "cmov","cmovu",
 };
 
 static const std::unordered_set<std::string> ITypeInstructions = {
@@ -456,6 +457,7 @@ std::unordered_map<std::string, SRTypeInstructionEncoding> SR_type_instruction_e
 //cond
 std::unordered_map<std::string, MtypeInstructionEncoding> M_type_instruction_encoding_map = {
   {"cmov", {0b0110101, 0b000}}, //O_GPR_C_GPR_C_GPR_C_I
+  {"cmovu", {0b0110101, 0b001}}, //O_GPR_C_GPR_C_GPR_C_I
 };
 
 std::unordered_map<std::string, I1TypeInstructionEncoding> I1_type_instruction_encoding_map = {
@@ -679,6 +681,7 @@ std::unordered_map<std::string, std::vector<SyntaxType>> instruction_syntax_map 
     {"bigmul", {SyntaxType::O_GPR_C_I_LP_GPR_RP}},
     //cond
     {"cmov", {SyntaxType::O_GPR_C_GPR_C_GPR_C_I}},
+    {"cmovu", {SyntaxType::O_GPR_C_GPR_C_GPR_C_I}},
     {"addC", {SyntaxType::O_GPR_C_GPR_C_GPR}},
 
     {"addi", {SyntaxType::O_GPR_C_GPR_C_I}},
