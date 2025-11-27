@@ -178,8 +178,12 @@ std::unordered_map<std::string, Instruction> instruction_string_map = {
     //custom
     {"ldbm",Instruction::kldbm},
     {"bigmul",Instruction::kbigmul},
+<<<<<<< HEAD
     //cond
     {"cmov", Instruction::kcmov},
+=======
+    {"addC",Instruction::kaddC},
+>>>>>>> cb9721aec0e2d7a5fc33de6f17a599f9fff7cc96
 
 };
 
@@ -228,15 +232,22 @@ static const std::unordered_set<std::string> valid_instructions = {
     "fcvt.l.d", "fcvt.lu.d", "fmv.x.d", "fcvt.d.l", "fcvt.d.lu", "fmv.d.x",
 
     //custom Instructions
+<<<<<<< HEAD
     "ldbm","bigmul",
     //cond
     "cmov",
+=======
+    "ldbm","bigmul","addC",
+>>>>>>> cb9721aec0e2d7a5fc33de6f17a599f9fff7cc96
 
 };
 
 static const std::unordered_set<std::string> RTypeInstructions = {
     // Base RV32I
     "add", "sub", "and", "or", "xor", "sll", "srl", "sra", "slt", "sltu",
+
+    //custom
+    "addC",
 
     // RV64
     "addw", "subw", "sllw", "srlw", "sraw",
@@ -321,7 +332,7 @@ static const std::unordered_set<std::string> BaseExtensionInstructions = {
     "jal", "jalr",
     "ecall",
     //custom
-    "ldbm","bigmul",
+    "ldbm","bigmul","addC",
 };
 
 static const std::unordered_set<std::string> CSRRInstructions = {
@@ -435,6 +446,9 @@ std::unordered_map<std::string, RTypeInstructionEncoding> R_type_instruction_enc
     {"divuw", {0b0111011, 0b101, 0b0000001}}, // O_GPR_C_GPR_C_GPR
     {"remw", {0b0111011, 0b110, 0b0000001}}, // O_GPR_C_GPR_C_GPR
     {"remuw", {0b0111011, 0b111, 0b0000001}}, // O_GPR_C_GPR_C_GPR
+
+    //custom
+    {"addC", {0b0110011, 0b000, 0b0000011}}, // O_GPR_C_GPR_C_GPR
 
 };
 
@@ -669,8 +683,12 @@ std::unordered_map<std::string, std::vector<SyntaxType>> instruction_syntax_map 
     //custom
     {"ldbm", {SyntaxType::O_GPR_C_GPR_C_GPR}},
     {"bigmul", {SyntaxType::O_GPR_C_I_LP_GPR_RP}},
+<<<<<<< HEAD
     //cond
     {"cmov", {SyntaxType::O_GPR_C_GPR_C_GPR_C_I}},
+=======
+    {"addC", {SyntaxType::O_GPR_C_GPR_C_GPR}},
+>>>>>>> cb9721aec0e2d7a5fc33de6f17a599f9fff7cc96
 
     {"addi", {SyntaxType::O_GPR_C_GPR_C_I}},
     {"xori", {SyntaxType::O_GPR_C_GPR_C_I}},

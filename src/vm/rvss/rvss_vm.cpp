@@ -49,7 +49,8 @@ void RVSSVM::Decode() {
 
   // Control signals for custom instructions
   uint8_t opcode = current_instruction_ & 0b1111111;
-  // std::cout << "[DECODE] opcode=" << std::hex << (int)opcode  << std::dec << std::endl;
+  //std::cout << "[DECODE] opcode=" << std::hex << (int)opcode  << std::dec << std::endl;
+  //std::cout << "[DECODE] opcode=" << std::hex << get_instr_encoding(Instruction::kaddC).opcode  << std::dec << std::endl;
   // std::cout << "[DEBUG START FLAGS] "
   //         << "LDBM_start=" << control_unit_.GetLdbmStart()
   //         << " LDBM_done="  << bigmul_unit::GetLdbmDone()
@@ -65,7 +66,6 @@ void RVSSVM::Decode() {
   // Control signals for custom instructions
   if ((opcode == get_instr_encoding(Instruction::kldbm).opcode) && control_unit_.GetLdbmStart() && bigmul_unit::GetLdbmDone()) {
     
-    // std::cout << "[DECODE] opcode=" << std::hex << get_instr_encoding(Instruction::kldbm).opcode  << std::dec << std::endl;
     // std::cout << "[LDBM START] Condition met - starting LDBM" << std::endl;
     uint8_t rs1 = (current_instruction_ >> 15) & 0b1111111;
     uint8_t rs2 = (current_instruction_ >> 20) & 0b1111111;

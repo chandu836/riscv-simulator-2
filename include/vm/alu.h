@@ -25,6 +25,7 @@
 #define FCSR_INEXACT      (1 << 4)  // Inexact result
 
 namespace alu {
+    extern bool ADDC_CARRY;
 
 enum class AluOp {
     kNone, ///< No operation.
@@ -56,6 +57,8 @@ enum class AluOp {
     kSraw, ///< Shift right arithmetic word operation.
     kSlt, ///< Set less than operation.
     kSltu, ///< Unsigned set less than operation.
+    //custom
+    kAddC, ///< Custom addition operation.
 
     //cond
     //kCmov,
@@ -138,6 +141,9 @@ inline std::ostream& operator<<(std::ostream& os, const AluOp& op) {
         case AluOp::kNone: os << "kNone"; break;
         case AluOp::kAdd: os << "kAdd"; break;
         case AluOp::kSub: os << "kSub"; break;
+        //custom
+        case AluOp::kAddC: os << "kAddC"; break;
+        //
         case AluOp::kMul: os << "kMul"; break;
         case AluOp::kDiv: os << "kDiv"; break;
         case AluOp::kDivu: os << "kDivu"; break;

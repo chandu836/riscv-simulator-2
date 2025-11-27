@@ -39,6 +39,9 @@ static std::string decode_fclass(uint16_t res) {
   return output.empty() ? "unknown" : output;
 }
 
+//custom
+bool ADDC_CARRY = false;
+
 
 [[nodiscard]] std::pair<uint64_t, bool> Alu::execute(AluOp op, uint64_t a, uint64_t b) {
   switch (op) {
@@ -69,6 +72,21 @@ static std::string decode_fclass(uint16_t res) {
       int32_t result = sa - sb;
       bool overflow = __builtin_sub_overflow(sa, sb, &result);
       return {static_cast<uint64_t>(static_cast<int32_t>(result)), overflow};
+    }
+    case AluOp::kAddC: {
+      #pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+    __uint128_t tot = (__uint128_t)a + b + (ADDC_CARRY ? 1 : 0);
+#pragma GCC diagnostic pop
+
+    uint64_t result = (uint64_t)tot;
+    bool new_carry = (tot >> 64) & 1;
+    ADDC_CARRY = new_carry;
+    // zero_ = (result == 0);
+    // negative_ = ((int64_t)result < 0);
+    //overflow_ = false; // carry-add does not generate traditional overflow
+
+    return {result, new_carry};
     }
     case AluOp::kMul: {
       auto sa = static_cast<int64_t>(a);
