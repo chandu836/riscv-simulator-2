@@ -178,12 +178,9 @@ std::unordered_map<std::string, Instruction> instruction_string_map = {
     //custom
     {"ldbm",Instruction::kldbm},
     {"bigmul",Instruction::kbigmul},
-<<<<<<< HEAD
     //cond
     {"cmov", Instruction::kcmov},
-=======
     {"addC",Instruction::kaddC},
->>>>>>> cb9721aec0e2d7a5fc33de6f17a599f9fff7cc96
 
 };
 
@@ -232,12 +229,10 @@ static const std::unordered_set<std::string> valid_instructions = {
     "fcvt.l.d", "fcvt.lu.d", "fmv.x.d", "fcvt.d.l", "fcvt.d.lu", "fmv.d.x",
 
     //custom Instructions
-<<<<<<< HEAD
     "ldbm","bigmul",
     //cond
     "cmov",
-=======
-    "ldbm","bigmul","addC",
+    "addC",
 >>>>>>> cb9721aec0e2d7a5fc33de6f17a599f9fff7cc96
 
 };
@@ -683,12 +678,9 @@ std::unordered_map<std::string, std::vector<SyntaxType>> instruction_syntax_map 
     //custom
     {"ldbm", {SyntaxType::O_GPR_C_GPR_C_GPR}},
     {"bigmul", {SyntaxType::O_GPR_C_I_LP_GPR_RP}},
-<<<<<<< HEAD
     //cond
     {"cmov", {SyntaxType::O_GPR_C_GPR_C_GPR_C_I}},
-=======
     {"addC", {SyntaxType::O_GPR_C_GPR_C_GPR}},
->>>>>>> cb9721aec0e2d7a5fc33de6f17a599f9fff7cc96
 
     {"addi", {SyntaxType::O_GPR_C_GPR_C_I}},
     {"xori", {SyntaxType::O_GPR_C_GPR_C_I}},
