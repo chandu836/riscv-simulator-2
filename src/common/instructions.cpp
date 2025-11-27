@@ -233,7 +233,6 @@ static const std::unordered_set<std::string> valid_instructions = {
     //cond
     "cmov",
     "addC",
->>>>>>> cb9721aec0e2d7a5fc33de6f17a599f9fff7cc96
 
 };
 

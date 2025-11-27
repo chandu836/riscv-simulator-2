@@ -33,7 +33,7 @@ loop:
     addi    x12, x12, 8
 
     addi    x7, x7, -1
-    bne     x7, x0, loop      # <--- FIXED
+    bne     x7, x0, loop
 
     li      a7, 93
     li      a0, 0
