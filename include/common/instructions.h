@@ -50,6 +50,7 @@ enum Instruction {
   //custom instructions
   kldbm,
   kbigmul,
+  kaddC,
 
   kaddw, 
   ksubw, 
@@ -256,6 +257,7 @@ inline constexpr std::array<InstructionEncoding, static_cast<size_t>(Instruction
   //custom instructions
   InstructionEncoding(Instruction::kldbm,      0b0101010, -1, 0b000, -1, -1, 0b0000000), // kldbm
   InstructionEncoding(Instruction::kbigmul,    0b0111111, -1, 0b000, -1, -1, -1), // kbigmul
+  InstructionEncoding(Instruction::kaddC,      0b0110011, -1, 0b000, -1, -1, 0b0000011), // kaddC
 
   InstructionEncoding(Instruction::kmul,        0b0110011, -1, 0b000, -1, -1, 0b0000001), // kmul
   InstructionEncoding(Instruction::kmulh,       0b0110011, -1, 0b001, -1, -1, 0b0000001), // kmulh
