@@ -151,6 +151,12 @@ int32_t VmBase::ImmGenerator(uint32_t instruction) {
             imm = sign_extend(imm, 21); // Might be 20
             break;
 
+        //cond
+        case 0b0110101: // CMOV
+            imm = (instruction >> 25) & 0x7F;
+            imm = sign_extend(imm, 7);
+            break;
+
         /*** M-EXTENSION (Multiplication, Division) - R-TYPE ***/
         case 0b0110011: // kMul, kMulh, kMulhu, kMulhsu, kDiv, kDivu, kRem, kRemu
             // R-Type (no immediate needed)

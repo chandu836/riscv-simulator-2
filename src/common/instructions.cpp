@@ -177,7 +177,9 @@ std::unordered_map<std::string, Instruction> instruction_string_map = {
 
     //custom
     {"ldbm",Instruction::kldbm},
-    {"bigmul",Instruction::kbigmul}
+    {"bigmul",Instruction::kbigmul},
+    //cond
+    {"cmov", Instruction::kcmov},
 
 };
 
@@ -226,7 +228,9 @@ static const std::unordered_set<std::string> valid_instructions = {
     "fcvt.l.d", "fcvt.lu.d", "fmv.x.d", "fcvt.d.l", "fcvt.d.lu", "fmv.d.x",
 
     //custom Instructions
-    "ldbm","bigmul"
+    "ldbm","bigmul",
+    //cond
+    "cmov",
 
 };
 
@@ -252,6 +256,10 @@ static const std::unordered_set<std::string> RLTypeInstructions = {
 
 static const std::unordered_set<std::string> SRTypeInstructions = {
   "bigmul",
+};
+//cond
+static const std::unordered_set<std::string> MtypeInstructions = {
+  "cmov",
 };
 
 static const std::unordered_set<std::string> ITypeInstructions = {
@@ -436,6 +444,10 @@ std::unordered_map<std::string, RLTypeInstructionEncoding> RL_type_instruction_e
 };
 std::unordered_map<std::string, SRTypeInstructionEncoding> SR_type_instruction_encoding_map = {
   {"bigmul", {0b0111111, 0b000}}, //O_GPR_C_I_LP_GPR_RP
+};
+//cond
+std::unordered_map<std::string, MtypeInstructionEncoding> M_type_instruction_encoding_map = {
+  {"cmov", {0b0110101, 0b000}}, //O_GPR_C_GPR_C_GPR_C_I
 };
 
 std::unordered_map<std::string, I1TypeInstructionEncoding> I1_type_instruction_encoding_map = {
@@ -657,6 +669,8 @@ std::unordered_map<std::string, std::vector<SyntaxType>> instruction_syntax_map 
     //custom
     {"ldbm", {SyntaxType::O_GPR_C_GPR_C_GPR}},
     {"bigmul", {SyntaxType::O_GPR_C_I_LP_GPR_RP}},
+    //cond
+    {"cmov", {SyntaxType::O_GPR_C_GPR_C_GPR_C_I}},
 
     {"addi", {SyntaxType::O_GPR_C_GPR_C_I}},
     {"xori", {SyntaxType::O_GPR_C_GPR_C_I}},
@@ -862,6 +876,10 @@ bool isValidRLTypeInstruction(const std::string &instruction) {
 bool isValidSRTypeInstruction(const std::string &instruction) {
   return SRTypeInstructions.find(instruction)!=SRTypeInstructions.end();
 }
+//cond
+bool isValidMtypeInstruction(const std::string &instruction) {
+  return MtypeInstructions.find(instruction)!=MtypeInstructions.end();
+}
 
 bool isValidITypeInstruction(const std::string &instruction) {
   return (I1TypeInstructions.find(instruction)!=I1TypeInstructions.end()) ||
@@ -1057,6 +1075,8 @@ std::string getExpectedSyntaxes(const std::string &opcode) {
       {SyntaxType::O_GPR_C_FPR_C_RM, "<gp-reg>, <fp-reg>, <rm>"},
       {SyntaxType::O_GPR_C_FPR_C_FPR, "<gp-reg>, <fp-reg>, <fp-reg>"},
       {SyntaxType::O_FPR_C_I_LP_GPR_RP, "<fp-reg>, <imm>(<gp-reg>)"},
+      //cond
+      {SyntaxType::O_GPR_C_GPR_C_GPR_C_I, "<gp-reg>, <gp-reg>, <gp-reg>, <imm>"},
   };
 
   std::string syntaxes;

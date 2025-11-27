@@ -556,3 +556,45 @@ bool Parser::parse_O_GPR_C_I_LP_GPR_RP() {
   return false;
 }
 
+  //cond
+bool Parser::parse_O_GPR_C_GPR_C_GPR_C_I() {
+  if (peekToken(1).line_number==currentToken().line_number
+      && peekToken(1).type==TokenType::GP_REGISTER
+      && peekToken(2).line_number==currentToken().line_number
+      && peekToken(2).type==TokenType::COMMA
+      && peekToken(3).line_number==currentToken().line_number
+      && peekToken(3).type==TokenType::GP_REGISTER
+      && peekToken(4).line_number==currentToken().line_number
+      && peekToken(4).type==TokenType::COMMA
+      && peekToken(5).line_number==currentToken().line_number
+      && peekToken(5).type==TokenType::GP_REGISTER
+      && peekToken(6).line_number==currentToken().line_number
+      && peekToken(6).type==TokenType::COMMA
+      && peekToken(7).line_number==currentToken().line_number
+      && peekToken(7).type==TokenType::NUM
+      && (peekToken(8).type==TokenType::EOF_ || peekToken(8).line_number!=currentToken().line_number)
+      ) {
+    ICUnit block;
+    block.setOpcode(currentToken().value);
+    block.setLineNumber(currentToken().line_number);
+    block.setInstructionIndex(instruction_index_);
+
+    std::string reg;
+    reg = reg_alias_to_name.at(peekToken(1).value);
+    block.setRd(reg);
+    reg = reg_alias_to_name.at(peekToken(3).value);
+    block.setRs1(reg);
+    reg = reg_alias_to_name.at(peekToken(5).value);
+    block.setRs2(reg);
+    int64_t imm = std::stoll(peekToken(7).value);
+    block.setImm(std::to_string(imm));
+
+    skipCurrentLine();
+    intermediate_code_.emplace_back(block, true);
+    instruction_number_line_number_mapping_[instruction_index_] = block.getLineNumber();
+    instruction_index_++;
+    return true;
+  }
+  return false;
+}
+

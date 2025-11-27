@@ -31,6 +31,8 @@ enum Instruction {
   //custom
   kSRtype,
   kRLtype,
+  //cond
+  kMtype,
   
   kCsrType, // CSR type instructions
 
@@ -46,6 +48,8 @@ enum Instruction {
   ksra, 
   kor, 
   kand,
+  //cond
+  kcmov,
 
   //custom instructions
   kldbm,
@@ -236,6 +240,8 @@ inline constexpr std::array<InstructionEncoding, static_cast<size_t>(Instruction
   // InstructionEncoding(Instruction::kUtype,      0b0110111, -1, -1, -1, -1, -1), // kUtype
   InstructionEncoding(Instruction::kLoadType,   0b0000011, -1, -1, -1, -1, -1), // kLoadType
 
+  //cond
+  InstructionEncoding(Instruction::kMtype,   0b0110101, -1, -1, -1, -1, -1), // kMtype
   //custom
   InstructionEncoding(Instruction::kSRtype,     0b0111111, -1, -1, -1, -1, -1), // kSRtype
   InstructionEncoding(Instruction::kRLtype,     0b0101010, -1, -1, -1, -1, -1), // kRLtype
@@ -253,7 +259,10 @@ inline constexpr std::array<InstructionEncoding, static_cast<size_t>(Instruction
   InstructionEncoding(Instruction::kor,         0b0110011, -1, 0b110, -1, -1, 0b0000000), // kor
   InstructionEncoding(Instruction::kand,        0b0110011, -1, 0b111, -1, -1, 0b0000000), // kand
 
-  //custom instructions
+ //cond
+  InstructionEncoding(Instruction::kcmov,        0b0110101, -1, 0b000, -1, -1, -1), // cmov
+
+//custom instructions
   InstructionEncoding(Instruction::kldbm,      0b0101010, -1, 0b000, -1, -1, 0b0000000), // kldbm
   InstructionEncoding(Instruction::kbigmul,    0b0111111, -1, 0b000, -1, -1, -1), // kbigmul
 
@@ -464,6 +473,14 @@ struct RTypeInstructionEncoding {
       : opcode(opcode), funct3(funct3), funct7(funct7) {}
 };
 
+//cond
+struct MtypeInstructionEncoding {
+  std::bitset<7> opcode;
+  std::bitset<3> funct3;
+
+  MtypeInstructionEncoding(unsigned int opcode, unsigned int funct3)
+      : opcode(opcode), funct3(funct3) {}
+};
 //custom
 struct RLTypeInstructionEncoding {
   std::bitset<7> opcode;
@@ -648,6 +665,8 @@ enum class SyntaxType {
   O_GPR_C_FPR_C_RM,       ///< Opcode general-register , floating-point-register , rounding_mode
   O_GPR_C_FPR_C_FPR,       ///< Opcode general-register , floating-point-register , floating-point-register
   O_FPR_C_I_LP_GPR_RP,    ///< Opcode floating-point-register , immediate , lparen ( general-register ) rparen
+  //cond
+  O_GPR_C_GPR_C_GPR_C_I,   ///< Opcode general-register , general-register , general-register , Immediate
 };
 
 extern std::unordered_map<std::string, RTypeInstructionEncoding> R_type_instruction_encoding_map;
@@ -660,7 +679,8 @@ extern std::unordered_map<std::string, UTypeInstructionEncoding> U_type_instruct
 extern std::unordered_map<std::string, JTypeInstructionEncoding> J_type_instruction_encoding_map;
 extern std::unordered_map<std::string, CSR_RTypeInstructionEncoding> CSR_R_type_instruction_encoding_map;
 extern std::unordered_map<std::string, CSR_ITypeInstructionEncoding> CSR_I_type_instruction_encoding_map;
-
+//cond
+extern std::unordered_map<std::string, MtypeInstructionEncoding> M_type_instruction_encoding_map;
 //custom
 extern std::unordered_map<std::string, RLTypeInstructionEncoding> RL_type_instruction_encoding_map;
 extern std::unordered_map<std::string, SRTypeInstructionEncoding> SR_type_instruction_encoding_map;
@@ -691,6 +711,8 @@ bool isValidSTypeInstruction(const std::string &instruction);
 bool isValidBTypeInstruction(const std::string &instruction);
 bool isValidUTypeInstruction(const std::string &instruction);
 bool isValidJTypeInstruction(const std::string &instruction);
+//cond
+bool isValidMtypeInstruction(const std::string &instruction);
 
 //custom
 bool isValidRLTypeInstruction(const std::string &instruction);

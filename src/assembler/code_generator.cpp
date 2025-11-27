@@ -36,7 +36,11 @@ std::vector<std::string> printIntermediateCode(const std::vector<std::pair<ICUni
       code = block.getOpcode() + " " + block.getRd() + " " + block.getImm();
     } else if (instruction_set::isValidJTypeInstruction(block.getOpcode())) {
       code = block.getOpcode() + " " + block.getRd() + " " + block.getImm() + " <" + block.getLabel() + ">";
-    } else {
+    }
+    //cond
+    else if (instruction_set::isValidMtypeInstruction(block.getOpcode())) {
+      code = block.getOpcode() + " " + block.getRd() + " " + block.getRs1() + " " + block.getRs2() + " " + block.getImm();
+    }else {
       code = block.getOpcode() + " " + block.getImm();
     }
 
@@ -59,6 +63,24 @@ uint32_t generateRTypeMachineCode(const ICUnit &block) {
   const uint32_t opcode = encoding.opcode.to_ulong();
   uint32_t machineCode = 0;
   machineCode |= (funct7 << 25);
+  machineCode |= (rs2 << 20);
+  machineCode |= (rs1 << 15);
+  machineCode |= (funct3 << 12);
+  machineCode |= (rd << 7);
+  machineCode |= opcode;
+  return machineCode;
+}
+//cond
+uint32_t generateMtypeMachineCode(const ICUnit &block) {
+  const auto &encoding = instruction_set::M_type_instruction_encoding_map.at(block.getOpcode());
+  const uint32_t rd = extractRegisterIndex(block.getRd());
+  const uint32_t rs1 = extractRegisterIndex(block.getRs1());
+  const uint32_t rs2 = extractRegisterIndex(block.getRs2());
+  const uint32_t imm = static_cast<uint32_t>(std::stoi(block.getImm()));
+  const uint32_t funct3 = encoding.funct3.to_ulong();
+  const uint32_t opcode = encoding.opcode.to_ulong();
+  uint32_t machineCode = 0;
+  machineCode |= (imm << 25);
   machineCode |= (rs2 << 20);
   machineCode |= (rs1 << 15);
   machineCode |= (funct3 << 12);
@@ -361,6 +383,10 @@ std::vector<uint32_t> generateMachineCode(const std::vector<std::pair<ICUnit, bo
       code = generateRLTypeMachineCode(block);
     } else if (instruction_set::isValidSRTypeInstruction(block.getOpcode())) {
       code = generateSRTypeMachineCode(block);
+    }
+    //cond
+    else if (instruction_set::isValidMtypeInstruction(block.getOpcode())) {
+      code = generateMtypeMachineCode(block);
     }
     else if (instruction_set::isValidI1TypeInstruction(block.getOpcode())) {
       code = generateI1TypeMachineCode(block);

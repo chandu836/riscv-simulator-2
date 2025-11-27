@@ -233,6 +233,26 @@ static std::string decode_fclass(uint16_t res) {
     case AluOp::kSltu: {
       return {static_cast<uint64_t>(a < b), false};
     }
+    //cond
+    case AluOp::kCmovmax: {
+      // Signed max (use signed comparison)
+      //std::cout << "entered cmovmax alu" << a << b<<std::endl;
+      int64_t sa = static_cast<int64_t>(a);
+      int64_t sb = static_cast<int64_t>(b);
+      uint64_t result = static_cast<uint64_t>((sa > sb) ? sa : sb);
+      //std::cout << "result " << result<<std::endl;
+      return { result, false };
+    }
+
+    case AluOp::kCmovmin: {
+      // Signed min
+      //std::cout << "entered cmovmin alu" << a << b<<std::endl;
+      int64_t sa = static_cast<int64_t>(a);
+      int64_t sb = static_cast<int64_t>(b);
+      uint64_t result = static_cast<uint64_t>((sa < sb) ? sa : sb);
+      //std::cout << "result " << result<<std::endl;
+      return { result, false };
+    }
     default: return {0, false};
   }
 }

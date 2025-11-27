@@ -823,6 +823,19 @@ void RVSSVM::WriteBack() {
         registers_.WriteGpr(rd, memory_result_);
         break;
       }
+      //cond
+      case get_instr_encoding(Instruction::kMtype).opcode:/*Cmov*/{
+      //  std::cout << "[DBG Execute] pc=0x" << std::hex << program_counter_ - 4
+      //       << " instr=0x" << current_instruction_
+      //       << " opcode=" << std::dec << (int)opcode
+      //       << " funct3=" << (int)funct3
+      //       << " imm=" << std::dec << imm
+      //       << " execution result" << execution_result_
+      //       << " rd=0x" << rd
+      //       << std::endl;
+        registers_.WriteGpr(rd, execution_result_);
+        break;
+      }
       case get_instr_encoding(Instruction::kjalr).opcode: /* JALR */
       case get_instr_encoding(Instruction::kjal).opcode: /* JAL */ {
         registers_.WriteGpr(rd, next_pc_);
