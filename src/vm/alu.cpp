@@ -277,7 +277,7 @@ bool ADDC_CARRY = false;
       uint64_t ua = a;
       uint64_t ub = b;
       uint64_t result = (ua > ub) ? ua : ub;
-      std::cout << "result " << result<<std::endl;
+      //std::cout << "result " << result<<std::endl;
       return { result, false };
     }
 
@@ -287,7 +287,7 @@ bool ADDC_CARRY = false;
       uint64_t ua = a;
       uint64_t ub = b;
       uint64_t result = (ua < ub) ? ua : ub;
-      std::cout << "result " << result<<std::endl;
+      //std::cout << "result " << result<<std::endl;
       return { result, false };
     }
     default: return {0, false};
